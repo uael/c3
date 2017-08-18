@@ -508,6 +508,14 @@ impl C3 {
                 },
                 kind => Err(format!("unsupported kind of expression {:?} = {:?}", kind, cur))?,
             },
+            CXCursor_AsmStmt => {
+                eprintln!("warning: __asm__ not supported");
+                Kind::TransparentGroup(TransparentGroup{items:vec![]})
+            },
+            CXCursor_UnexposedDecl => {
+                // shrug
+                Kind::TransparentGroup(TransparentGroup{items:vec![]})
+            },
             _ => {
                 self.dump("not impl", cur);
                 Err(format!("expr not implz: {:?}\n  (it's in {:?})", cur, cur.lexical_parent()))?
