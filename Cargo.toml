@@ -9,7 +9,7 @@ license = "NCSA AND BSD-3-Clause"
 name = "c3"
 readme = "README.md"
 repository = "https://gitlab.com/citrus-rs/c3.git"
-version = "0.4.0"
+version = "0.5.0"
 
 [[bin]]
 doctest = false
@@ -17,7 +17,7 @@ name = "dump"
 
 [dependencies.c3_clang_extensions]
 path = "c3_clang_extensions"
-version = "0.3.1"
+version = "0.3.2"
 
 [dependencies.clang-sys]
 features = ["static", "clang_4_0"]
