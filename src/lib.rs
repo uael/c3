@@ -68,7 +68,7 @@ impl C3 {
             return;
         }
         let indent = "  ".repeat(depth);
-        if depth > 9 {
+        if depth > 19 {
             println!("{}+{}…", indent, label);
         }
         println!("{}+{}{:?}", indent, label, ty);
@@ -93,7 +93,7 @@ impl C3 {
         }
 
         for child in cur.collect_children() {
-            if depth > 8 {
+            if depth > 18 {
                 println!("{} …", indent);
                 return;
             }
