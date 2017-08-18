@@ -452,10 +452,9 @@ impl C3 {
                         .map_err(|err| err.context("init list"))?)
             },
             CXCursor_CStyleCastExpr => {
-                let mut ch = cur.collect_children().into_iter();
                 Kind::Cast(Cast {
-                    ty: self.ty_from_ty(cur.cur_type(), &mut ch)?,
-                    arg: Box::new(self.expr_from_cur(ch.next().ok_or("no arg for cast")?)?),
+                    ty: self.ty_from_cur(cur)?,
+                    arg: Box::new(self.expr_from_cur(cur.sub_expr().ok_or("missing cast expr")?)?),
                     explicit: true,
                 })
             }
@@ -469,14 +468,18 @@ impl C3 {
             },
             CXCursor_UnexposedExpr => match cur.extended_kind() {
                 // FIXME: fudge for PredefinedExpr, but not sure what that really is
-                CusorKindExt::PredefinedExpr | CusorKindExt::ImplicitCastExpr => {
+                CusorKindExt::PredefinedExpr => {
+                    self.expr_from_child(cur)?.ok_or("PredefinedExpr?")?.kind
+                },
+                CusorKindExt::ImplicitCastExpr => {
+                    // It does not always put typerefs in child nodes?
+                    let ty = self.ty_from_cur_opts(cur, TyOptions::typerefs(false))
+                            .map_err(|err| err.context("type of ImplicitCastExpr"))?;
+                    let sub = cur.sub_expr().ok_or("missing cast expr")?;
                     Kind::Cast(Cast {
-                        // It does not put typerefs in child nodes?
-                        ty: self.ty_from_cur_opts(cur, TyOptions::typerefs(false))
-                            .map_err(|err| err.context("type of ImplicitCastExpr"))?,
-                        arg: self.expr_from_child(cur)
-                            .map_err(|err| err.context("when getting expr base of ImplicitCastExpr"))?
-                            .ok_or("no arg for implcast")?,
+                        ty,
+                        arg: Box::new(self.expr_from_cur(sub)
+                            .map_err(|err| err.context(format!("when getting expr base of ImplicitCastExpr {:?} -> {:?}", cur, sub)))?),
                         explicit: false,
                     })
                 },
@@ -759,7 +762,7 @@ impl C3 {
                     body = Some(Box::new(self.expr_from_cur(child)
                     .map_err(|err| {
                         self.dump("failed function body", child);
-                        err.context(format!("error when parsing body of {}()", cur.spelling()))
+                        err.context(format!("error when parsing body of {}() {:?}", cur.spelling(), cur.loc()))
                     })?));
                 },
                 CXCursor_ParmDecl => {

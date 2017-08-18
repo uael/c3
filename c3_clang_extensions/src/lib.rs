@@ -13,6 +13,7 @@ extern "C" {
     pub fn c3_Cursor_getFloatValue(cur: CXCursor) -> f64;
     pub fn c3_Cursor_getKindExt(cur: CXCursor) -> CusorKindExt;
     pub fn c3_CursorType_getKindExt(ty: CXType) -> ClangTypeExt;
+    pub fn c3_Cursor_getSubExpr(cur: CXCursor) -> CXCursor;
 
     pub fn c3_ForStmt_getBody(cur: CXCursor) -> CXCursor;
     pub fn c3_ForStmt_getCond(cur: CXCursor) -> CXCursor;

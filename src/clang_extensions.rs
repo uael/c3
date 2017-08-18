@@ -45,6 +45,7 @@ pub(crate) trait CursorExt where Self: Sized {
     fn if_then(&self) -> Cursor;
     fn if_cond(&self) -> Cursor;
     fn if_condition_variable(&self) -> Option<Cursor>;
+    fn sub_expr(&self) -> Option<Cursor>;
     fn is_anon(&self) -> bool;
 
     fn binary_opcode(&self) -> BinaryOperatorKind;
@@ -196,6 +197,13 @@ impl CursorExt for Cursor {
 
     fn if_condition_variable(&self) -> Option<Cursor> {
         unsafe { Self::new_cur(c3_IfStmt_getConditionVariable(self.x)) }
+    }
+
+    fn sub_expr(&self) -> Option<Cursor> {
+        unsafe {
+            Self::new_cur(c3_Cursor_getSubExpr(self.x))
+                .or_else(||self.first_child())
+        }
     }
 
     fn binary_opcode(&self) -> BinaryOperatorKind {

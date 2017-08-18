@@ -18,14 +18,13 @@
 /** get cursor to an initializer of cursor pointing to VarDecl */
 extern "C" CXCursor c3_VarDecl_getInit(CXCursor cursor) {
     auto D = static_cast<const clang::VarDecl *>(getCursorDecl(cursor));
-    if (!D) {
-        return clang_getNullCursor();
+    if (D) {
+        auto e = D->getInit();
+        if (e) {
+            return MakeCXCursor(e, getCursorDecl(cursor), getCursorTU(cursor), e->getSourceRange());
+        }
     }
-    auto e = D->getInit();
-    if (!e) {
-        return clang_getNullCursor();
-    }
-    return MakeCXCursor(e, getCursorDecl(cursor), getCursorTU(cursor), e->getSourceRange());
+    return clang_getNullCursor();
 }
 
 /** get cursor to else statement of cursor pointing to IfStmt */
@@ -70,6 +69,30 @@ extern "C" CXCursor c3_ForStmt_getInc(CXCursor cursor) {
 extern "C" CXCursor c3_ForStmt_getInit(CXCursor cursor) {
     const clang::ForStmt *f = getForStmt(cursor);
     return MakeCXCursor(f->getInit(), getCursorDecl(cursor), getCursorTU(cursor), f->getSourceRange());
+}
+
+static const Expr *getSubExpr(CXCursor cursor) {
+    auto e = getCursorExpr(cursor);
+    if (!e) return NULL;
+    switch (e->getStmtClass()) {
+        case clang::Stmt::ParenExprClass:
+            return static_cast<const ParenExpr *>(e)->getSubExpr();
+        case clang::Stmt::UnaryOperatorClass:
+            return static_cast<const UnaryOperator *>(e)->getSubExpr();
+        case clang::Stmt::CStyleCastExprClass:
+        case clang::Stmt::ImplicitCastExprClass:
+            return static_cast<const CastExpr *>(e)->getSubExpr();
+        default:
+            return NULL;
+    }
+}
+
+extern "C" CXCursor c3_Cursor_getSubExpr(CXCursor cursor) {
+    auto f = getSubExpr(cursor);
+    if (f) {
+        return MakeCXCursor(f, getCursorDecl(cursor), getCursorTU(cursor), f->getSourceRange());
+    }
+    return clang_getNullCursor();
 }
 
 /** Get type of argument of an unary expression (intended for sizeof) */
@@ -299,7 +322,7 @@ extern "C" uint32_t c3_Cursor_getKindExt(CXCursor cursor) {
     }
 
     auto S = getCursorStmt(cursor);
-    switch(S->getStmtClass()) {
+    if (S) switch(S->getStmtClass()) {
         case clang::Stmt::OpaqueValueExprClass: return CusorKindExt::OpaqueValueExpr;
         case clang::Stmt::ArrayTypeTraitExprClass: return CusorKindExt::ArrayTypeTraitExpr;
         case clang::Stmt::AsTypeExprClass: return CusorKindExt::AsTypeExpr;
