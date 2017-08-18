@@ -53,7 +53,7 @@ pub enum Kind {
     CompoundLiteral(CompoundLiteral),
     Cast(Cast),
     MemberRef(MemberRef),
-    DesignatedInit(DesignatedInit),
+    DesignatedInit(String, Box<Expr>),
 
     /// Special
     TransparentGroup(TransparentGroup),
@@ -70,7 +70,7 @@ impl Kind {
             Kind::CompoundLiteral(ref t) => &t.ty,
             Kind::Cast(ref t) => &t.ty,
             Kind::Paren(ref t) => return t.kind.ty(),
-            Kind::DesignatedInit(ref t) => return t.arg.kind.ty(),
+            Kind::DesignatedInit(_, ref arg) => return arg.kind.ty(),
             Kind::If(ref t) => return t.body.kind.ty(),
             Kind::IntegerLiteral(_, Some(ref ty)) => return Some(ty),
             _ => return None,
@@ -250,12 +250,6 @@ pub struct Cast {
 pub struct MemberRef {
     pub arg: Box<Expr>,
     pub name: String,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct DesignatedInit {
-    pub name: String,
-    pub arg: Box<Expr>,
 }
 
 #[derive(Clone, PartialEq)]

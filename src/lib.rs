@@ -498,10 +498,10 @@ impl C3 {
                     if ch.len() != 2 {
                         Err("unexpected len of designated init")?;
                     }
-                    Kind::DesignatedInit(DesignatedInit {
-                        name: ch[0].spelling(),
-                        arg: Box::new(self.expr_from_cur(ch[1])?),
-                    })
+                    Kind::DesignatedInit(
+                        ch[0].spelling(),
+                        Box::new(self.expr_from_cur(ch[1])?),
+                    )
                 },
                 CusorKindExt::RanOutOfIdeas => {
                     Err(format!("bummer; totally unknown kind of expression {:?}", cur))?
