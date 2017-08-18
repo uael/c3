@@ -19,11 +19,7 @@ Internal for the C3 project.
  * `svn co http://llvm.org/svn/llvm-project/clang-tools-extra/tags/RELEASE_401/final extra`
  * `cd ../../..`
  * `mkdir build; cd build`
- * Optionally
-     * `export LLVM_TARGETS_TO_BUILD=x86_64` (or your platform)
-     * `export LLVM_BUILD_TOOLS=OFF`
-     * `export LLVM_INCLUDE_TESTS=OFF`
-     * `export LLVM_BUILD_LLVM_DYLIB=OFF`
  * `cmake -G "Unix Makefiles" ..`
+   * or `cmake -G "Unix Makefiles" -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_BUILD_TOOLS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_BUILD_LLVM_DYLIB=OFF ..`
  * `make clang -j6`
  * Take a nap.
