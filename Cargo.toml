@@ -1,0 +1,30 @@
+[package]
+authors = ["Kornel <kornel@geekhood.net>"]
+categories = ["parsing", "external-ffi-bindings"]
+keywords = ["clang", "libclang", "ast", "ctree"]
+description = "\"Complete C AST. Enables analysis and generation of code derived from C.\nBuilt using LLVM 4/Clang using some fragile C++ APIs to work around missing data and ambiguities in libclang."
+documentation = "https://docs.rs/c3"
+homepage = "https://gitlab.com/citrus-rs/c3"
+license = "NCSA AND BSD-3-Clause"
+name = "c3"
+readme = "README.md"
+repository = "https://gitlab.com/citrus-rs/c3.git"
+version = "0.4.0"
+
+[[bin]]
+doctest = false
+name = "dump"
+
+[dependencies.c3_clang_extensions]
+path = "c3_clang_extensions"
+version = "0.3.1"
+
+[dependencies.clang-sys]
+features = ["static", "clang_4_0"]
+version = "0.18"
+
+[lib]
+doctest = false
+[profile.dev]
+codegen-units = 4
+debug = false

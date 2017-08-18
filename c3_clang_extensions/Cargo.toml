@@ -1,0 +1,18 @@
+[package]
+authors = ["Kornel Lesiński <kornel@geekhood.net>"]
+description = "Ugly hacks to get information hidden/malformed by libclang\nSee C3 for usable interface."
+homepage = "https://gitlab.com/citrus-rs/c3"
+include = ["src/*.cpp", "src/*.c", "src/*.rs", "build.rs", "Cargo.toml", "README.md", "vendor/**"]
+license = "NCSA"
+links = "c3_clang_extensions"
+name = "c3_clang_extensions"
+readme = "README.md"
+repository = "https://gitlab.com/citrus-rs/c3.git"
+version = "0.3.1"
+
+[build-dependencies]
+gcc = "=0.3.51"
+
+[dependencies.clang-sys]
+features = ["static", "clang_4_0"]
+version = "0.18"
