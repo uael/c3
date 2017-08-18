@@ -115,17 +115,21 @@ pub struct VarDecl {
 pub struct FunctionDecl {
     pub name: String,
     pub args: Vec<Arg>,
+    pub variadic: bool,
     pub body: Box<Expr>,
     pub ty: Ty,
     pub storage: Storage,
+    pub abi: Abi,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionProtoDecl {
     pub name: String,
     pub args: Vec<Arg>,
+    pub variadic: bool,
     pub ty: Ty,
     pub storage: Storage,
+    pub abi: Abi,
 }
 
 #[derive(Debug, Clone, PartialEq)]

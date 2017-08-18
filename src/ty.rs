@@ -11,6 +11,7 @@ pub enum Visibility {
 pub struct Ty {
     pub debug_name: String,
     pub kind: TyKind,
+    pub is_const: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -147,6 +148,18 @@ pub enum Storage {
     Static,
     Extern,
 }
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum Abi {
+    C,
+    Rust,
+    Stdcall,
+    Fastcall,
+    Vectorcall,
+    Thiscall,
+    Aapcs,
+    Win64,
+    SysV64,
+}
 
 #[derive(Clone)]
 pub struct Arg {
@@ -172,6 +185,9 @@ pub struct Field {
 impl fmt::Debug for Ty {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use TyKind::*;
+        if self.is_const {
+            write!(f, "const ")?;
+        }
         match self.kind {
             IncompleteArray(ref ty) => write!(f, "[{:?}; …]", ty),
             ConstantArray(ref sz, ref ty) => write!(f, "[{:?}; {:?}]", ty, sz),

@@ -622,6 +622,7 @@ impl C3 {
 
     fn ty_from_ty_iter<I: Iterator<Item=Cursor>>(&self, ty: clang::Type, iter: &mut I, opts: TyOptions) -> Res<Ty> {
         Ok(Ty {
+            is_const: ty.is_const(),
             debug_name: self.type_name(ty)?,
             kind: match ty.kind() {
             CXType_Bool => TyKind::Bool,
@@ -752,6 +753,21 @@ impl C3 {
         let mut body = None;
         let mut args = vec![];
         let storage = self.storage_from_cur(cur);
+        let fn_ty = cur.cur_type();
+        let variadic = fn_ty.is_variadic();
+        let abi = match fn_ty.call_conv() {
+            CXCallingConv_AAPCS => Abi::Aapcs,
+            CXCallingConv_AAPCS_VFP => Abi::Aapcs,
+            CXCallingConv_C => Abi::C,
+            CXCallingConv_Default => Abi::C,
+            CXCallingConv_X86FastCall => Abi::Fastcall,
+            CXCallingConv_X86StdCall => Abi::Stdcall,
+            CXCallingConv_X86ThisCall => Abi::Thiscall,
+            CXCallingConv_X86VectorCall => Abi::Vectorcall,
+            CXCallingConv_X86_64SysV => Abi::SysV64,
+            CXCallingConv_X86_64Win64 => Abi::Win64,
+            _ => Err("unsupported calling convention")?,
+        };
         let mut children = cur.collect_children().into_iter()
             // FIXME: support attrs
             .filter(|c| c.kind() != CXCursor_UnexposedAttr) // fn attrs come before ret ty
@@ -807,6 +823,7 @@ impl C3 {
                 }
             }
         }
+
         if let Some(body) = body {
             Ok(Kind::FunctionDecl(FunctionDecl {
                 name: cur.spelling(),
@@ -814,6 +831,8 @@ impl C3 {
                 args,
                 ty,
                 storage,
+                abi,
+                variadic,
             }))
         } else {
             Ok(Kind::FunctionProtoDecl(FunctionProtoDecl {
@@ -821,6 +840,8 @@ impl C3 {
                 args,
                 ty,
                 storage,
+                abi,
+                variadic,
             }))
         }
     }
