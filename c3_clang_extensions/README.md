@@ -10,16 +10,21 @@ Internal for the C3 project.
 
 ### Building clang
 
- * Install cmake, subversion, build-essential
+This will require 20GB of disk space and 16GB of RAM.
+
+ * Install cmake, subversion, build-essential, libffi-dev, libncursesw5-dev
  * `curl -LO http://releases.llvm.org/4.0.1/llvm-4.0.1.src.tar.xz`
  * `tar xf llvm-4.0.1.src.tar.xz`
  * `cd llvm-4.0.1.src/tools`
  * `svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_401/final clang`
- * `cd clang/tools`
- * `svn co http://llvm.org/svn/llvm-project/clang-tools-extra/tags/RELEASE_401/final extra`
- * `cd ../../..`
+ * `cd ..` # back to llvm-4.0.1.src dir
  * `mkdir build; cd build`
- * `cmake -G "Unix Makefiles" ..`
-   * or `cmake -G "Unix Makefiles" -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_BUILD_TOOLS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_BUILD_LLVM_DYLIB=OFF ..`
- * `make clang -j6`
+ * `cmake -G "Unix Makefiles" -DLIBCLANG_BUILD_STATIC=ON ..`
+   * or `cmake -G "Unix Makefiles" -DLIBCLANG_BUILD_STATIC=ON -DLLVM_TARGETS_TO_BUILD=X86  -DLLVM_INCLUDE_TESTS=OFF -DCMAKE_BUILD_TYPE=MinSizeRel -DLLVM_BUILD_LLVM_DYLIB=OFF ..`
+ * `make -j8`
+   * if it runs out of memory, try without `-j8`
  * Take a nap.
+ * `cd ..` # back to llvm-4.0.1.src dir
+ * `export LIBCLANG_INCLUDE_PATH="$PWD/tools/clang/include/:$PWD/include/"`
+ * `export LIBCLANG_STATIC_PATH="$PWD/build/lib/"`
+ * `export LLVM_CONFIG_PATH="$PWD/build/bin/llvm-config"`

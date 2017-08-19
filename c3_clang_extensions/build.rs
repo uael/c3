@@ -19,15 +19,18 @@ fn main() {
                 .flag("-Wno-comment")
                 .file("src/extensions.cpp")
                 .include(path)
-                .include(find_clang_include())
+                .include(find_clang_include(path, "clang/AST/OperationKinds.h"))
+                .include(find_clang_include(path, "llvm/Support/DataTypes.h"))
                 .include(fs::canonicalize("vendor").unwrap())
                 .compile("libc3_clang_extensions.a");
 }
 
-fn find_clang_include() -> PathBuf {
-    let user_path = env::var("LIBCLANG_INCLUDE_PATH");
-    let user_path = user_path.as_ref().map(|s|s.as_ref()).unwrap_or("./clang/include/");
-    let candidate_paths = &[user_path,
+fn find_clang_include(llvm_path: &str, file_search: &str) -> PathBuf {
+    let user_paths = env::var("LIBCLANG_INCLUDE_PATH");
+    let user_paths = user_paths.as_ref().map(|s|s.as_ref()).unwrap_or("./clang/include/");
+    let candidate_paths: Vec<_> = env::split_paths(user_paths).collect();
+    let fallback_paths = [
+        llvm_path,
         "/usr/lib/llvm-4.0/include/",
         "../clang/include/",
         "../../clang/include/",
@@ -36,19 +39,21 @@ fn find_clang_include() -> PathBuf {
         "../../llvm/include/",
         "../../../llvm/include/",
     ];
-    for &path in candidate_paths {
-        let fspath = Path::new(path);
-        if fspath.exists() && fspath.join("clang/AST").exists() {
+    let candidate_paths = candidate_paths.iter()
+        .map(|p|p.as_path())
+        .chain(fallback_paths.into_iter().map(Path::new));
+
+    for fspath in candidate_paths {
+        if fspath.exists() && fspath.join(file_search).exists() {
             return fs::canonicalize(fspath).unwrap();
         }
         if let Some(parent) = fspath.parent() {
-            println!("tried {}", parent.join("clang/AST").display());
-            if parent.join("clang/AST").exists() {
+            if parent.join(file_search).exists() {
                 return fs::canonicalize(parent).unwrap();
             }
         }
     }
 
-    println!("cargo:warning=Unable to find include/clang path. Set LIBCLANG_INCLUDE_PATH");
+    println!("cargo:warning=Unable to find include path for '{}'. Set LIBCLANG_INCLUDE_PATH", file_search);
     return PathBuf::from("./clang/include/");
 }
