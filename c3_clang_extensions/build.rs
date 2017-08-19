@@ -5,32 +5,39 @@ use std::fs;
 
 extern crate gcc;
 
-fn main() {
+fn query_llvm_config(arg: &str) -> String {
     let llvm_config_cmd = env::var("LLVM_CONFIG_PATH").unwrap_or("llvm-config".to_string());
-    let cmd_out = process::Command::new(llvm_config_cmd).arg("--includedir")
+    let cmd_out = process::Command::new(llvm_config_cmd).arg(arg)
         .output()
         .expect("llvm-config must be in PATH or set LLVM_CONFIG_PATH to the llvm-config binary");
-    let path = String::from_utf8(cmd_out.stdout).expect("utf8");
-    let path = path.trim_right();
+    String::from_utf8(cmd_out.stdout).expect("utf8")
+        .trim_right().to_owned()
+}
+
+fn main() {
+    let inc_path = query_llvm_config("--includedir");
+    let lib_inc_path = format!("{}/../include", query_llvm_config("--libdir"));
+    let paths = [inc_path.as_str(), lib_inc_path.as_str()];
 
     gcc::Config::new()
                 .cpp(true)
                 .flag("-std=c++11")
                 .flag("-Wno-comment")
                 .file("src/extensions.cpp")
-                .include(path)
-                .include(find_clang_include(path, "clang/AST/OperationKinds.h"))
-                .include(find_clang_include(path, "llvm/Support/DataTypes.h"))
+                .include(&inc_path)
+                .include(find_clang_include(paths.as_ref(), "clang/AST/OperationKinds.h"))
+                .include(find_clang_include(paths.as_ref(), "llvm/Support/DataTypes.h"))
                 .include(fs::canonicalize("vendor").unwrap())
                 .compile("libc3_clang_extensions.a");
 }
 
-fn find_clang_include(llvm_path: &str, file_search: &str) -> PathBuf {
+fn find_clang_include(llvm_paths: &[&str], file_search: &str) -> PathBuf {
     let user_paths = env::var("LIBCLANG_INCLUDE_PATH");
     let user_paths = user_paths.as_ref().map(|s|s.as_ref()).unwrap_or("./clang/include/");
     let candidate_paths: Vec<_> = env::split_paths(user_paths).collect();
     let fallback_paths = [
-        llvm_path,
+        llvm_paths[0],
+        llvm_paths[1],
         "/usr/lib/llvm-4.0/include/",
         "../clang/include/",
         "../../clang/include/",
