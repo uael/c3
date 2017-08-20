@@ -19,12 +19,10 @@ This will require 20GB of disk space and 16GB of RAM.
  * `svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_401/final clang`
  * `cd ..` # back to llvm-4.0.1.src dir
  * `mkdir build; cd build`
- * `cmake -G "Unix Makefiles" -DLIBCLANG_BUILD_STATIC=ON ..`
-   * or `cmake -G "Unix Makefiles" -DLIBCLANG_BUILD_STATIC=ON -DLLVM_TARGETS_TO_BUILD=X86  -DLLVM_INCLUDE_TESTS=OFF -DCMAKE_BUILD_TYPE=MinSizeRel -DLLVM_BUILD_LLVM_DYLIB=OFF ..`
- * `make -j8`
-   * if it runs out of memory, try without `-j8`
+ * `cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=$HOME/llvm-c3 -DLLVM_TARGETS_TO_BUILD=X86 -DLIBCLANG_BUILD_STATIC=ON -DLLVM_BUILD_LLVM_DYLIB=OFF -DLLVM_INCLUDE_TESTS=OFF -DCMAKE_BUILD_TYPE=MinSizeRel ..`
+ * `make -j8; make install`
  * Take a nap.
- * `cd ..` # back to llvm-4.0.1.src dir
- * `export LIBCLANG_INCLUDE_PATH="$PWD/tools/clang/include/:$PWD/include/"`
- * `export LIBCLANG_STATIC_PATH="$PWD/build/lib/"`
- * `export LLVM_CONFIG_PATH="$PWD/build/bin/llvm-config"`
+ * `cp lib/libclang.a "$HOME/llvm-c3/lib/"`
+ * `export LIBCLANG_INCLUDE_PATH="$HOME/llvm-c3/tools/clang/include/:$HOME/llvm-c3/include/"`
+ * `export LIBCLANG_STATIC_PATH="$HOME/llvm-c3/lib/"`
+ * `export LLVM_CONFIG_PATH="$HOME/llvm-c3/bin/llvm-config"`
