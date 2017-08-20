@@ -54,6 +54,12 @@ pub enum TyKind {
     Elaborated(String, Option<Box<Ty>>),
     Typedef(String),
     Record(Box<Expr>),
+
+    /// Rusty
+    Reference(Box<Ty>),
+    Slice(Box<Ty>),
+
+    // Not supported yet:
     // LValueReference,
     // MemberPointer,
     // NullPtr,
@@ -63,7 +69,6 @@ pub enum TyKind {
     // ObjCObjectPointer,
     // ObjCSel,
     // Overload,
-    // Record,
     // RValueReference,
     // Typedef,
     // VariableArray,
@@ -148,6 +153,7 @@ pub enum Storage {
     Static,
     Extern,
 }
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Abi {
     C,
