@@ -19,7 +19,7 @@ This will require 20GB of disk space and 16GB of RAM.
  * `svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_401/final clang`
  * `cd ..` # back to llvm-4.0.1.src dir
  * `mkdir build; cd build`
- * `cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=$HOME/llvm-c3 -DLLVM_TARGETS_TO_BUILD=X86 -DLIBCLANG_BUILD_STATIC=ON -DLLVM_BUILD_LLVM_DYLIB=OFF -DLLVM_INCLUDE_TESTS=OFF -DCMAKE_BUILD_TYPE=MinSizeRel ..`
+ * `cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=$HOME/llvm-c3 -DLIBCLANG_BUILD_STATIC=ON -DLLVM_BUILD_LLVM_DYLIB=OFF -DLLVM_TARGETS_TO_BUILD=X86 -DCMAKE_BUILD_TYPE=MinSizeRel -DLLVM_POLLY_BUILD=OFF -DLLVM_BUILD_RUNTIME=OFF -DLLVM_ENABLE_TERMINFO=OFF -DLLVM_ENABLE_LIBEDIT=OFF -DLLVM_ENABLE_ZLIB=OFF -DLLVM_ENABLE_FFI=OFF ..`
  * `make -j8; make install`
  * Take a nap.
  * `cp lib/libclang.a "$HOME/llvm-c3/lib/"`

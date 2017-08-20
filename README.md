@@ -2,7 +2,7 @@
 
 This crate parses C files and exposes them as an abstract syntax tree.
 
-The AST is a relaxed version of C's usual structure (e.g. everything pretends to be an expression), but contains enough information to rebuild complete source code.
+The AST is a relaxed version of C's usual structure (e.g. everything pretends to be an expression), but contains enough information to rebuild complete source code. The AST also allows for some Rust features not found in C files. This is enables [Citrus](https://gitlab.com/citrus-rs/citrus) to convert C to Rust.
 
 It uses LLVM 4 and Clang's unstable C++ API (and therefore it's unlikely to work with any other version than LLVM 4.0).
 
@@ -12,6 +12,4 @@ On the Rust side it's based on [bindgen](https://github.com/rust-lang-nursery/ru
 
 ## Building
 
- * Install [LLVM 4 and Clang](http://releases.llvm.org/download.html).
- * Add directory containing `llvm-config` to your `PATH`, or set `LLVM_CONFIG_PATH` env variable poiting to the `llvm-config` executable file.
- * Set `LIBCLANG_INCLUDE_PATH` pointing to Clang's include directory (`<clang install dir>/clang/include/`)
+[Follow these instructions](https://gitlab.com/citrus-rs/c3/blob/master/c3_clang_extensions/README.md).
