@@ -113,10 +113,19 @@ impl C3 {
 
     fn type_name(&self, ty: clang::Type) -> Res<String> {
         let name = ty.spelling();
-        if name != "" {
-            Ok(name)
+        let name = if name == "" {
+            self.type_name_cur(ty.declaration().ok_or("anon type without declaration")?)?
         } else {
-            self.type_name_cur(ty.declaration().ok_or("anon type without declaration")?)
+            name
+        };
+
+        if name.contains(' ') {
+            Ok(name.split_whitespace().filter_map(|w| match w {
+                "const" | "struct" | "*" => None,
+                w => Some(w),
+            }).collect::<Vec<_>>().join("_"))
+        } else {
+            Ok(name)
         }
     }
 
