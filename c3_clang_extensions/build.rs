@@ -14,20 +14,33 @@ fn query_llvm_config(arg: &str) -> String {
         .trim_right().to_owned()
 }
 
+fn canonicalize<P: AsRef<Path>>(path: P) -> PathBuf {
+    let path = fs::canonicalize(path.as_ref()).unwrap();
+    // MSVC sucks
+    {let pathstr = path.to_str().unwrap();
+    if pathstr.starts_with("\\\\?\\") {
+        return PathBuf::from(&pathstr["\\\\?\\".len()..])
+    }}
+    path
+}
+
 fn main() {
     let inc_path = query_llvm_config("--includedir");
     let lib_inc_path = format!("{}/../include", query_llvm_config("--libdir"));
     let paths = [inc_path.as_str(), lib_inc_path.as_str()];
 
-    gcc::Config::new()
+    let mut cfg = gcc::Config::new();
+    cfg
                 .cpp(true)
-                .flag("-std=c++11")
-                .flag("-Wno-comment")
                 .file("src/extensions.cpp")
                 .include(&inc_path)
                 .include(find_clang_include(paths.as_ref(), "clang/AST/OperationKinds.h"))
                 .include(find_clang_include(paths.as_ref(), "llvm/Support/DataTypes.h"))
-                .include(fs::canonicalize("vendor").unwrap())
+                .include(canonicalize("vendor"));
+    if !env::var("TARGET").unwrap().contains("msvc") {
+        cfg.flag("-std=c++11").flag("-Wno-comment");
+    }
+    cfg
                 .compile("libc3_clang_extensions.a");
 }
 
@@ -52,11 +65,11 @@ fn find_clang_include(llvm_paths: &[&str], file_search: &str) -> PathBuf {
 
     for fspath in candidate_paths {
         if fspath.exists() && fspath.join(file_search).exists() {
-            return fs::canonicalize(fspath).unwrap();
+            return canonicalize(fspath);
         }
         if let Some(parent) = fspath.parent() {
             if parent.join(file_search).exists() {
-                return fs::canonicalize(parent).unwrap();
+                return canonicalize(parent);
             }
         }
     }
