@@ -25,17 +25,14 @@ fn canonicalize<P: AsRef<Path>>(path: P) -> PathBuf {
 }
 
 fn main() {
-    let inc_path = query_llvm_config("--includedir");
-    let lib_inc_path = format!("{}/../include", query_llvm_config("--libdir"));
-    let paths = [inc_path.as_str(), lib_inc_path.as_str()];
-
+    let paths = collect_search_paths();
     let mut cfg = gcc::Config::new();
     cfg
                 .cpp(true)
                 .file("src/extensions.cpp")
-                .include(&inc_path)
-                .include(find_clang_include(paths.as_ref(), "clang/AST/OperationKinds.h"))
-                .include(find_clang_include(paths.as_ref(), "llvm/Support/DataTypes.h"))
+                .include(&paths[0])
+                .include(find_clang_include(&paths, "clang/AST/OperationKinds.h"))
+                .include(find_clang_include(&paths, "llvm/Support/DataTypes.h"))
                 .include(canonicalize("vendor"));
     if !env::var("TARGET").unwrap().contains("msvc") {
         cfg.flag("-std=c++11").flag("-Wno-comment");
@@ -44,14 +41,22 @@ fn main() {
                 .compile("libc3_clang_extensions.a");
 }
 
-fn find_clang_include(llvm_paths: &[&str], file_search: &str) -> PathBuf {
-    let user_paths = env::var("LIBCLANG_INCLUDE_PATH");
-    let user_paths = user_paths.as_ref().map(|s|s.as_ref()).unwrap_or("./clang/include/");
-    let candidate_paths: Vec<_> = env::split_paths(user_paths).collect();
+fn collect_search_paths() -> Vec<PathBuf> {
+    let inc_path = PathBuf::from(query_llvm_config("--includedir"));
+    let lib_inc_path = PathBuf::from(format!("{}/../include", query_llvm_config("--libdir")));
+    let mut paths = vec![inc_path, lib_inc_path];
+
+    if let Ok(user_paths) = env::var("LIBCLANG_INCLUDE_PATH") {
+        paths.extend(env::split_paths(&user_paths));
+    }
+
+    paths
+}
+
+fn find_clang_include(candidate_paths: &[PathBuf], file_search: &str) -> PathBuf {
     let fallback_paths = [
-        llvm_paths[0],
-        llvm_paths[1],
         "/usr/lib/llvm-4.0/include/",
+        "C:\\Program Files\\LLVM\\include",
         "../clang/include/",
         "../../clang/include/",
         "../../../clang/include/",
