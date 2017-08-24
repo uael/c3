@@ -25,6 +25,7 @@ pub enum Kind {
     /// Glue
     InitList(Vec<Expr>),
     TranslationUnit(TranslationUnit),
+    ExternC(Vec<Expr>),
 
     /// Stmt and Expr
     Block(Block),
