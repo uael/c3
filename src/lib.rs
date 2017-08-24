@@ -833,25 +833,18 @@ impl C3 {
             }
         }
 
+        let f = FunctionDecl {
+            name: cur.spelling(),
+            args,
+            ty,
+            storage,
+            abi,
+            variadic,
+        };
         if let Some(body) = body {
-            Ok(Kind::FunctionDecl(FunctionDecl {
-                name: cur.spelling(),
-                body,
-                args,
-                ty,
-                storage,
-                abi,
-                variadic,
-            }))
+            Ok(Kind::FunctionDecl(f, body))
         } else {
-            Ok(Kind::FunctionProtoDecl(FunctionProtoDecl {
-                name: cur.spelling(),
-                args,
-                ty,
-                storage,
-                abi,
-                variadic,
-            }))
+            Ok(Kind::FunctionProtoDecl(f))
         }
     }
 }
@@ -910,7 +903,7 @@ fn test_parse_ptr() {
     }");
 
     match items[0].kind {
-        Kind::FunctionDecl(FunctionDecl{ref body,..}) => {
+        Kind::FunctionDecl(_, ref body) => {
             match body.kind {
                 Kind::Block(Block{ref items,..}) => {
                     match items[0].kind {

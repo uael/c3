@@ -18,8 +18,8 @@ pub enum Kind {
     /// Top-level
     TyDecl(TyDecl),
     RecordDecl(RecordDecl),
-    FunctionDecl(FunctionDecl),
-    FunctionProtoDecl(FunctionProtoDecl),
+    FunctionDecl(FunctionDecl, Box<Expr>),
+    FunctionProtoDecl(FunctionDecl),
     VarDecl(VarDecl),
 
     /// Glue
@@ -65,7 +65,7 @@ impl Kind {
     pub fn ty(&self) -> Option<&Ty> {
         Some(match *self {
             Kind::TyDecl(ref t) => &t.ty,
-            Kind::FunctionDecl(ref t) => &t.ty,
+            Kind::FunctionDecl(ref t, _) => &t.ty,
             Kind::FunctionProtoDecl(ref t) => &t.ty,
             Kind::VarDecl(VarDecl{ty: Some(ref ty),..}) => ty,
             Kind::CompoundLiteral(ref t) => &t.ty,
@@ -114,17 +114,6 @@ pub struct VarDecl {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDecl {
-    pub name: String,
-    pub args: Vec<Arg>,
-    pub variadic: bool,
-    pub body: Box<Expr>,
-    pub ty: Ty,
-    pub storage: Storage,
-    pub abi: Abi,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FunctionProtoDecl {
     pub name: String,
     pub args: Vec<Arg>,
     pub variadic: bool,
