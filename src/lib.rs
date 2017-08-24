@@ -659,8 +659,13 @@ impl C3 {
             },
             CXType_VariableArray => {
                 let elem_ty = self.ty_from_ty_iter(ty.elem_type().ok_or("array type")?, iter, opts)?;
-                let size = self.expr_from_cur(iter.next().ok_or("array size")?)?;
-                TyKind::VariableArray(Box::new(size), Box::new(elem_ty))
+                if let Some(size) = iter.next() {
+                    let size = self.expr_from_cur(size)?;
+                    TyKind::VariableArray(Box::new(size), Box::new(elem_ty))
+                } else {
+                    // Only declaration location has the size. Other places have only type, no size.
+                    TyKind::IncompleteArray(Box::new(elem_ty))
+                }
             },
             CXType_Pointer => TyKind::Pointer(Box::new(self.ty_from_ty_iter(ty.pointee_type().ok_or("pointee type")?, iter, opts)?)),
             CXType_Typedef => {
