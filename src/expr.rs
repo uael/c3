@@ -132,12 +132,13 @@ pub enum UnOpKind {
     PostDecPtr,
     PreIncPtr,
     PreDecPtr,
-    AddrOf,
+    AddrOf(bool), // is_const
     Deref,
     Plus,
     Minus,
     BinNot,
     Not,
+    IsNull,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -411,12 +411,16 @@ impl C3 {
                         UO_PostDec => if Self::is_pointer(ch) {UnOpKind::PostDecPtr} else {UnOpKind::PostDec},
                         UO_PreInc => if Self::is_pointer(ch) {UnOpKind::PreIncPtr} else {UnOpKind::PreInc},
                         UO_PreDec => if Self::is_pointer(ch) {UnOpKind::PreDecPtr} else {UnOpKind::PreDec},
-                        UO_AddrOf => UnOpKind::AddrOf,
+                        UO_AddrOf => {
+                            let is_const = cur.cur_type().pointee_type()
+                                .map(|t|t.is_const()).unwrap_or(false);
+                            UnOpKind::AddrOf(is_const)
+                        },
                         UO_Deref => UnOpKind::Deref,
                         UO_Plus => UnOpKind::Plus,
                         UO_Minus => UnOpKind::Minus,
-                        UO_Not => UnOpKind::BinNot,
-                        UO_LNot => UnOpKind::Not,
+                        UO_Not => if Self::is_pointer(ch) {UnOpKind::IsNull} else {UnOpKind::BinNot},
+                        UO_LNot => if Self::is_pointer(ch) {UnOpKind::IsNull} else {UnOpKind::Not},
                         UO_Real | UO_Imag | UO_Coawait | UO_Extension => Err("not implemented")?,
                     }
                 })
@@ -809,9 +813,6 @@ impl C3 {
                         name: child.spelling(),
                         loc: child.loc(),
                     })
-                    // } else {
-                    //     eprintln!("can't name arg {:?}", child);
-                    // }
                 }
                 CXCursor_VisibilityAttr => {
                     // visibility = match child.spelling().as_str() {
