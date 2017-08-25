@@ -180,6 +180,34 @@ impl C3 {
         }
     }
 
+    fn to_boolean_context(&self, cur: Cursor, expr: Expr) -> Res<Box<Expr>> {
+        Ok(Box::new(if Self::is_pointer(cur) {
+            let is_boolean = match expr.kind {
+                Kind::UnaryOperator(expr::UnaryOperator{kind:UnOpKind::IsNull,..}) => true,
+                _ => false,
+            };
+            if !is_boolean {
+                Expr {
+                    loc: expr.loc,
+                    kind: Kind::UnaryOperator(UnaryOperator {
+                        kind: UnOpKind::Not,
+                        arg: Box::new(Expr {
+                            loc: expr.loc,
+                            kind: Kind::UnaryOperator(UnaryOperator {
+                                kind: UnOpKind::IsNull,
+                                arg: Box::new(expr),
+                            }),
+                        }),
+                    }),
+                }
+            } else {
+                expr
+            }
+        } else {
+            expr
+        }))
+    }
+
     fn expr_from_cur(&self, cur: Cursor) -> Res<Expr> {
         if !cur.is_valid() {
             Err("invalid cursor")?;
@@ -222,7 +250,7 @@ impl C3 {
                     Err("while args")?;
                 }
                 Kind::While(While {
-                    cond: Box::new(self.expr_from_cur(ch[0])?),
+                    cond: self.to_boolean_context(ch[0], self.expr_from_cur(ch[0])?)?,
                     body: Box::new(self.expr_from_cur(ch[1])?),
                     is_do: false,
                 })
@@ -234,7 +262,7 @@ impl C3 {
                 }
                 Kind::While(While {
                     body: Box::new(self.expr_from_cur(ch[0])?),
-                    cond: Box::new(self.expr_from_cur(ch[1])?),
+                    cond: self.to_boolean_context(ch[1], self.expr_from_cur(ch[1])?)?,
                     is_do: true,
                 })
             },
@@ -314,7 +342,7 @@ impl C3 {
                     Err(format!("weird ternary operator {:?}", cur))?;
                 }
                 Kind::If(If {
-                    cond: Box::new(self.expr_from_cur(ch[0])?),
+                    cond: self.to_boolean_context(ch[0], self.expr_from_cur(ch[0])?)?,
                     body: Box::new(self.expr_from_cur(ch[1])?),
                     alt: Some(Box::new(self.expr_from_cur(ch[2])?)),
                     returns_value: true,
@@ -346,18 +374,26 @@ impl C3 {
                 if ch.len() != 2 {
                     Err(format!("Bad args for bin op {:?}", ch))?;
                 }
-                let left = Box::new(self.expr_from_cur(ch[0])?);
-                let right = Box::new(self.expr_from_cur(ch[1])?);
+                let mut left = Box::new(self.expr_from_cur(ch[0])?);
+                let mut right = Box::new(self.expr_from_cur(ch[1])?);
 
                 use self::BinaryOperatorKind::*;
-                Kind::BinaryOperator(BinaryOperator {left, right, kind: match cur.binary_opcode() {
+                let kind = match cur.binary_opcode() {
                     BO_Add => if Self::is_pointer(ch[0]) {BinOpKind::AddPtr} else {BinOpKind::Add},
                     BO_Sub => if Self::is_pointer(ch[0]) {BinOpKind::SubPtr} else {BinOpKind::Sub},
                     BO_Mul => BinOpKind::Mul,
                     BO_Div => BinOpKind::Div,
                     BO_Rem => BinOpKind::Rem,
-                    BO_LAnd => BinOpKind::And,
-                    BO_LOr => BinOpKind::Or,
+                    BO_LAnd => {
+                        left = self.to_boolean_context(ch[0], *left)?;
+                        right = self.to_boolean_context(ch[1], *right)?;
+                        BinOpKind::And
+                    },
+                    BO_LOr => {
+                        left = self.to_boolean_context(ch[0], *left)?;
+                        right = self.to_boolean_context(ch[1], *right)?;
+                        BinOpKind::Or
+                    },
                     BO_Xor => BinOpKind::BitXor,
                     BO_And => BinOpKind::BitAnd,
                     BO_Or => BinOpKind::BitOr,
@@ -382,7 +418,8 @@ impl C3 {
                     BO_Assign => BinOpKind::Assign,
                     BO_Comma => BinOpKind::Comma,
                     x => Err(format!("unknown opcode {:?}", x))?,
-                }})
+                };
+                Kind::BinaryOperator(BinaryOperator {left, right, kind})
             },
             CXCursor_ArraySubscriptExpr => {
                 let ch = cur.collect_children();
@@ -571,17 +608,19 @@ impl C3 {
     fn for_from_cur(&self, cur: Cursor) -> Res<Kind> {
         Ok(Kind::For(For {
             init: if let Some(ch) = cur.for_init() {Some(Box::new(self.expr_from_cur(ch)?))} else {None},
-            cond: if let Some(ch) = cur.for_cond() {Some(Box::new(self.expr_from_cur(ch)?))} else {None},
+            cond: if let Some(ch) = cur.for_cond() {Some(self.to_boolean_context(ch, self.expr_from_cur(ch)?)?)} else {None},
             inc: if let Some(ch) = cur.for_inc() {Some(Box::new(self.expr_from_cur(ch)?))} else {None},
             body: Box::new(self.expr_from_cur(cur.for_body())?),
         }))
     }
 
     fn if_from_cur(&self, cur: Cursor) -> Res<Kind> {
+        let cond_cur = cur.if_cond();
+        let cond_expr = self.expr_from_cur(cond_cur).map_err(|err|{
+            err.context(format!("while parsing cond {:?}", cond_cur))
+        })?;
         Ok(Kind::If(If {
-            cond: Box::new(self.expr_from_cur(cur.if_cond()).map_err(|err|{
-                        err.context(format!("while parsing cond {:?}", cur))
-                    })?),
+            cond: self.to_boolean_context(cond_cur, cond_expr)?,
             body: Box::new(self.expr_from_cur(cur.if_then()).map_err(|err|{
                         err.context(format!("while parsing then {:?}", cur))
                     })?),
