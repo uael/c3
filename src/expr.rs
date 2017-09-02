@@ -276,7 +276,7 @@ pub struct For {
 
 #[derive(Clone, PartialEq)]
 pub struct Case {
-    pub cond: Option<Box<Expr>>, // None = Default
+    pub conds: Vec<Expr>, // None = Default
     pub items: Vec<Expr>,
 }
 
@@ -333,7 +333,9 @@ impl fmt::Debug for Block {
 
 impl fmt::Debug for Case {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}:\n", self.cond)?;
+        for cond in &self.conds {
+            write!(f, "{:?}:\n", cond)?;
+        }
         fmt_items(f, &self.items)
     }
 }

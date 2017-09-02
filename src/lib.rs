@@ -314,13 +314,13 @@ impl C3 {
                     Err("unexpected case children")?;
                 }
                 Kind::Case(Case {
-                    cond: Some(Box::new(self.expr_from_cur(ch[0])?)),
+                    conds: vec![self.expr_from_cur(ch[0])?],
                     items: vec![self.expr_from_cur(ch[1])?],
                 })
             },
             CXCursor_DefaultStmt => {
                 Kind::Case(Case {
-                    cond: None,
+                    conds: vec![],
                     items: self.exprs_from_children(cur)?,
                 })
             },
