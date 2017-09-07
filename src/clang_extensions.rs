@@ -47,6 +47,7 @@ pub(crate) trait CursorExt where Self: Sized {
     fn if_condition_variable(&self) -> Option<Cursor>;
     fn sub_expr(&self) -> Option<Cursor>;
     fn is_anon(&self) -> bool;
+    fn is_function_macro(&self, tu: &TranslationUnit) -> bool;
 
     fn binary_opcode(&self) -> BinaryOperatorKind;
     fn unary_opcode(&self) -> UnaryOperatorKind;
@@ -144,6 +145,15 @@ impl CursorExt for Cursor {
             Self::limit_range(range, &child_cur);
             CXChildVisit_Continue
         });
+    }
+
+    fn is_function_macro(&self, tu: &TranslationUnit) -> bool {
+        if let Some(t) = tu.tokens(self) {
+            if let Some(t) = t.get(1) {
+                return t.spelling == "("; // FIXME: that's bad approximation, read C++ API
+            }
+        }
+        false
     }
 
     fn is_anon(&self) -> bool {

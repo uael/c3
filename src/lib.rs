@@ -16,6 +16,7 @@ pub use error::*;
 use expr::*;
 use ty::*;
 use std::path::Path;
+use std::collections::{HashMap, HashSet};
 
 use c3_clang_extensions::*;
 use clang_sys::*;
@@ -35,14 +36,24 @@ impl TyOptions {
     }
 }
 
+type MacroLocKey = (clang::File, usize, usize);
+
 pub struct C3 {
     translation_unit: Option<clang::TranslationUnit>,
+    macro_definitions: HashMap<String, Cursor>,
+    generated_macro_definition_exprs: HashSet<String>,
+    pending_macro_definition_exprs: Vec<Expr>,
+    macro_expansions: HashMap<MacroLocKey, Cursor>,
 }
 
 impl C3 {
     pub fn new() -> Self {
         Self {
             translation_unit: None,
+            macro_definitions: HashMap::new(),
+            generated_macro_definition_exprs: HashSet::new(),
+            pending_macro_definition_exprs: Vec::new(),
+            macro_expansions: HashMap::new(),
         }
     }
 
@@ -57,7 +68,7 @@ impl C3 {
     fn parse(&mut self, file_path: &Path, unsaved: &[UnsavedFile], compiler_flags: &[String]) -> Res<Expr> {
         let file_path = file_path.to_str().ok_or("non-utf8 filename")?;
         let ix = clang::Index::new(false, true);
-        self.translation_unit = Some(clang::TranslationUnit::parse(&ix, file_path, compiler_flags, unsaved, CXTranslationUnit_Flags::empty()).ok_or("clang parse error")?);
+        self.translation_unit = Some(clang::TranslationUnit::parse(&ix, file_path, compiler_flags, unsaved, CXTranslationUnit_DetailedPreprocessingRecord).ok_or("Clang parse error")?);
         let cur = self.translation_unit.as_ref().ok_or("clang err")?.cursor();
         let res = self.tu_from_cursor(cur);
         self.translation_unit = None;
@@ -143,6 +154,7 @@ impl C3 {
                     // generation of expr may create macros as a side-effect
                     // and macros are best placed before that item
                     let expr = self.expr_from_cur(ch)?;
+                    items.extend(self.pending_macro_definition_exprs.drain(..));
                     match expr.kind {
                         Kind::TransparentGroup(mut gr) => {
                             items.append(&mut gr.items);
@@ -242,9 +254,10 @@ impl C3 {
             }
         }
 
-        Ok(Expr{
-            loc: cur.loc(),
-            kind: match cur.kind() {
+        let kind = if let Some(macro_ref) = self.get_as_macro_ref(cur)? {
+            macro_ref
+        } else {
+            match cur.kind() {
 
             // Top-level Items
             CXCursor_TypedefDecl => {
@@ -588,11 +601,98 @@ impl C3 {
                 // shrug
                 Kind::TransparentGroup(TransparentGroup{items:vec![]})
             },
+            CXCursor_InclusionDirective => {
+                // translate to use statements?
+                Kind::TransparentGroup(TransparentGroup{items:vec![]})
+            },
+            CXCursor_MacroDefinition => {
+                // ignore completeley, these are macros like __STDC__
+                if !cur.is_builtin() {
+                    self.macro_definitions.entry(cur.spelling()).or_insert(cur);
+                }
+                Kind::TransparentGroup(TransparentGroup{items:vec![]})
+            },
+            CXCursor_MacroExpansion => {
+                if !cur.is_builtin() && !cur.is_function_macro(self.translation_unit.as_ref().unwrap()) {
+                    let (file, line, col, _) = cur.location().location();
+                    self.macro_expansions.insert((file, line, col), cur);
+                }
+                Kind::TransparentGroup(TransparentGroup{items:vec![]})
+            },
             kind => {
                 self.dump("Not implemented", cur);
                 Err(format!("Unsupported type of expression {:?} found in Clang AST: {:?}\n  (it's in {:?})", kind, cur, cur.lexical_parent()))?
             }
-        }})
+        }};
+        Ok(Expr{
+            loc: cur.loc(),
+            kind,
+        })
+    }
+
+    fn all_inside_loc(enclosing_loc: &Loc, cur: Cursor) -> bool {
+        let cur_loc = cur.loc();
+        if cur_loc.start < enclosing_loc.start || cur_loc.end > enclosing_loc.end {
+            return false;
+        }
+
+        for ch in cur.collect_children() {
+            if !Self::all_inside_loc(enclosing_loc, ch) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // See if instead of a regular expression, this can be expressed as a macro reference
+    // (and adds macro definition if needed)
+    fn get_as_macro_ref(&mut self, cur: Cursor) -> Res<Option<Kind>> {
+        // Macros are identified by their location
+        let (file, line, col, _) = cur.location().location();
+        let macro_loc_id = (file, line, col);
+
+        // Starting at macro pos is not enough, need to check if entire expr
+        // is hidden in the macro pos (e.g. in `x = FOO + 1` right starts at macro).
+        if let Some(ref expansion_cur) = self.macro_expansions.get(&macro_loc_id) {
+            if !Self::all_inside_loc(&expansion_cur.loc(), cur) {
+                return Ok(None);
+            }
+        }
+
+        if let Some(expansion_cur) = self.macro_expansions.remove(&macro_loc_id) {
+            let macro_name = expansion_cur.spelling();
+            let should_define = match macro_name.as_str() {
+                "offsetof" => return Ok(None), // expands to actual offsetof node
+                "NULL" => false,
+                _ => true,
+            };
+            if should_define && !self.generated_macro_definition_exprs.contains(&macro_name) {
+                self.generated_macro_definition_exprs.insert(macro_name.clone());
+                let mut ty = self.ty_from_cur_opts(cur, TyOptions::typerefs(false))?;
+                ty.is_const = true; // Macros are const, even if they're used in non-const location
+
+                let init = self.expr_from_cur(cur)?;
+                let init = match init.kind {
+                    Kind::Paren(arg) => *arg, // Macros are often wrapped in parens, not needed for consts
+                    _ => init,
+                };
+
+                let definition_cur = self.macro_definitions.get(&macro_name).unwrap_or(&cur);
+                self.pending_macro_definition_exprs.push(Expr {
+                    loc: definition_cur.loc(),
+                    // FIXME: make private? or private only if defined elsewhere?
+                    kind: Kind::VarDecl(VarDecl {
+                        name: macro_name.clone(),
+                        ty: Some(ty),
+                        init: Some(Box::new(init)),
+                        storage: Storage::Static,
+                    }),
+                });
+            }
+            Ok(Some(Kind::MacroRef(macro_name)))
+        } else {
+            Ok(None)
+        }
     }
 
     fn parse_c_str(s: String) -> String {

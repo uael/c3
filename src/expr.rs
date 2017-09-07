@@ -1,5 +1,6 @@
 use std::fmt;
 use ty::*;
+use std::cmp::Ordering;
 
 #[derive(Clone)]
 pub struct Expr {
@@ -43,6 +44,7 @@ pub enum Kind {
     Continue,
     /// Regular variable used in code
     DeclRef(String),
+    MacroRef(String),
     BinaryOperator(BinaryOperator),
     UnaryOperator(UnaryOperator),
     SizeOf(SizeOf),
@@ -299,6 +301,16 @@ pub struct TransparentGroup {
     pub items: Vec<Expr>,
 }
 
+impl PartialOrd for LocPos {
+    fn partial_cmp(&self, other: &LocPos) -> Option<Ordering> {
+        let line = self.line.partial_cmp(&other.line);
+        if line.map(|l| l != Ordering::Equal).unwrap_or(true) {
+            line
+        } else {
+            self.col.partial_cmp(&other.col)
+        }
+    }
+}
 
 impl Kind {
     pub fn flat(mut self) -> Self {

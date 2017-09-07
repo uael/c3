@@ -1157,7 +1157,7 @@ impl Iterator for CommentAttributesIterator {
 }
 
 /// A source file.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct File {
     x: CXFile,
 }
