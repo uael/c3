@@ -800,8 +800,7 @@ impl C3 {
     fn storage_from_cur(&self, cur: Cursor) -> Storage {
         match cur.storage() {
             CX_SC_Extern => Storage::Extern,
-            CX_SC_Static => Storage::Static,
-            // CX_SC_PrivateExtern
+            CX_SC_Static | CX_SC_PrivateExtern => Storage::Static,
             _ => Storage::None,
         }
     }
@@ -809,7 +808,7 @@ impl C3 {
     fn fn_from_cur(&self, cur: Cursor) -> Res<Kind> {
         let mut body = None;
         let mut args = vec![];
-        let storage = self.storage_from_cur(cur);
+        let mut storage = self.storage_from_cur(cur);
         let fn_ty = cur.cur_type();
         let variadic = fn_ty.is_variadic();
         let abi = match fn_ty.call_conv() {
@@ -825,10 +824,22 @@ impl C3 {
             CXCallingConv_X86_64Win64 => Abi::Win64,
             _ => Err("unsupported calling convention")?,
         };
-        let mut children = cur.collect_children().into_iter()
+        let children = cur.collect_children();
+        for child in &children {
+            match child.kind() {
+                CXCursor_VisibilityAttr => {
+                    if child.spelling() == "hidden" {
+                        // Citrus interprets all of it as private
+                        storage = Storage::Static;
+                    }
+                },
+                _ => {},
+            }
+        }
+        let mut children = children.into_iter()
             // FIXME: support attrs
             .filter(|c| c.kind() != CXCursor_UnexposedAttr) // fn attrs come before ret ty
-            .filter(|c| c.kind() != CXCursor_VisibilityAttr); // fn attrs come before ret ty
+            .filter(|c| c.kind() != CXCursor_VisibilityAttr);
 
         let ty = self.ty_from_ty(cur.ret_type().ok_or("no return type for fn?")?, &mut children)
                 .map_err(|err| {
@@ -852,26 +863,7 @@ impl C3 {
                         name: child.spelling(),
                         loc: child.loc(),
                     })
-                }
-                CXCursor_VisibilityAttr => {
-                    // visibility = match child.spelling().as_str() {
-                    //     "hidden" => Visibility::Hidden,
-                    //     "default" => Visibility::Default,
-                    //     x => panic!("visibility? {:?}", x),
-                    // };
                 },
-        // let mut visibility = Visibility::Default;
-
-        //         CXCursor_UnexposedAttr => {
-        //             eprintln!("had to skip unexposed attr {:?}", child.own_tokens(&self.translation_unit).into_iter().take(5).map(|t|t.spelling).collect::<Vec<_>>());
-        //         }
-        //         CXCursor_AsmLabelAttr => {
-        //             eprintln!("Ignoring asm attr");
-        //         }
-        //         CXCursor_TypeRef => { eprintln!("Skipping declaration? {}", child.spelling());}
-        //         CXCursor_ConstAttr => {
-        //             eprintln!("Ignoring cnostr attrr?");
-        //         }
                 _ => {
                     Err(format!("ERROR: unknown kind of function child? {:?}", child))?;
                 }
