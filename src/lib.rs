@@ -58,7 +58,8 @@ impl C3 {
         let file_path = file_path.to_str().ok_or("non-utf8 filename")?;
         let ix = clang::Index::new(false, true);
         self.translation_unit = Some(clang::TranslationUnit::parse(&ix, file_path, compiler_flags, unsaved, CXTranslationUnit_Flags::empty()).ok_or("clang parse error")?);
-        let res = self.tu_from_cursor(self.translation_unit.as_ref().ok_or("clang err")?.cursor());
+        let cur = self.translation_unit.as_ref().ok_or("clang err")?.cursor();
+        let res = self.tu_from_cursor(cur);
         self.translation_unit = None;
         res
     }
@@ -249,8 +250,9 @@ impl C3 {
                 if ch.len() != 2 {
                     Err("while args")?;
                 }
+                let cond = self.expr_from_cur(ch[0])?;
                 Kind::While(While {
-                    cond: self.to_boolean_context(ch[0], self.expr_from_cur(ch[0])?)?,
+                    cond: self.to_boolean_context(ch[0], cond)?,
                     body: Box::new(self.expr_from_cur(ch[1])?),
                     is_do: false,
                 })
@@ -260,9 +262,11 @@ impl C3 {
                 if ch.len() != 2 {
                     Err("do while args")?;
                 }
+                let body = Box::new(self.expr_from_cur(ch[0])?);
+                let cond = self.expr_from_cur(ch[1])?;
                 Kind::While(While {
-                    body: Box::new(self.expr_from_cur(ch[0])?),
-                    cond: self.to_boolean_context(ch[1], self.expr_from_cur(ch[1])?)?,
+                    body,
+                    cond: self.to_boolean_context(ch[1], cond)?,
                     is_do: true,
                 })
             },
@@ -341,8 +345,9 @@ impl C3 {
                 if ch.len() != 3 {
                     Err(format!("weird ternary operator {:?}", cur))?;
                 }
+                let cond = self.expr_from_cur(ch[0])?;
                 Kind::If(If {
-                    cond: self.to_boolean_context(ch[0], self.expr_from_cur(ch[0])?)?,
+                    cond: self.to_boolean_context(ch[0], cond)?,
                     body: Box::new(self.expr_from_cur(ch[1])?),
                     alt: Some(Box::new(self.expr_from_cur(ch[2])?)),
                     returns_value: true,
@@ -608,7 +613,10 @@ impl C3 {
     fn for_from_cur(&self, cur: Cursor) -> Res<Kind> {
         Ok(Kind::For(For {
             init: if let Some(ch) = cur.for_init() {Some(Box::new(self.expr_from_cur(ch)?))} else {None},
-            cond: if let Some(ch) = cur.for_cond() {Some(self.to_boolean_context(ch, self.expr_from_cur(ch)?)?)} else {None},
+            cond: if let Some(ch) = cur.for_cond() {
+                let cond = self.expr_from_cur(ch)?;
+                Some(self.to_boolean_context(ch, cond)?)
+            } else {None},
             inc: if let Some(ch) = cur.for_inc() {Some(Box::new(self.expr_from_cur(ch)?))} else {None},
             body: Box::new(self.expr_from_cur(cur.for_body())?),
         }))
