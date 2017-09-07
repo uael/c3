@@ -556,7 +556,7 @@ impl C3 {
                 CusorKindExt::RanOutOfIdeas => {
                     Err(format!("bummer; totally unknown kind of expression {:?}", cur))?
                 },
-                kind => Err(format!("unsupported kind of expression {:?} = {:?}", kind, cur))?,
+                kind => Err(format!("Unexposed Clang expression found {:?} = {:?}", kind, cur))?,
             },
             CXCursor_AsmStmt => {
                 eprintln!("warning: __asm__ not supported");
@@ -566,9 +566,9 @@ impl C3 {
                 // shrug
                 Kind::TransparentGroup(TransparentGroup{items:vec![]})
             },
-            _ => {
-                self.dump("not impl", cur);
-                Err(format!("expr not implz: {:?}\n  (it's in {:?})", cur, cur.lexical_parent()))?
+            kind => {
+                self.dump("Not implemented", cur);
+                Err(format!("Unsupported type of expression {:?} found in Clang AST: {:?}\n  (it's in {:?})", kind, cur, cur.lexical_parent()))?
             }
         }})
     }
