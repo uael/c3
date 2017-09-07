@@ -115,7 +115,12 @@ impl C3 {
     fn type_name(&self, ty: clang::Type) -> Res<String> {
         let name = ty.spelling();
         let name = if name == "" {
-            self.type_name_cur(ty.declaration().ok_or("anon type without declaration")?)?
+            if let Some(decl) = ty.declaration() {
+                self.type_name_cur(decl)?
+            } else {
+                eprintln!("anon type without declaration {:?}", ty);
+                "__anon_type__".to_owned()
+            }
         } else {
             name
         };
@@ -797,6 +802,10 @@ impl C3 {
                     },
                     k => Err(format!("ERROR: Extended type kind is unsupported '{}', {:?}; {:?}\n ", ty.spelling(), k, ty))?
                 }
+            },
+            CXType_Invalid => {
+                eprintln!("invalid type found");
+                TyKind::Void
             },
             k => {
                 Err(format!("ERROR: Standard type kind is unsupported '{}', {:?}; {:?}\n ", ty.spelling(), k, ty))?
