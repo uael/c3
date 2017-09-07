@@ -137,14 +137,27 @@ impl C3 {
 
     fn tu_from_cursor(&mut self, cur: Cursor) -> Res<Expr> {
         match cur.kind() {
-            CXCursor_TranslationUnit => Ok(Expr {
-                loc: cur.loc(),
-                kind: Kind::TranslationUnit(TranslationUnit {
-                    name: cur.spelling(),
-                    items: self.exprs_from_children(cur)
-                        .map_err(|err| err.context("error when parsing top-level item"))?
-                }),
-            }),
+            CXCursor_TranslationUnit => {
+                let mut items = vec![];
+                for ch in cur.collect_children() {
+                    // generation of expr may create macros as a side-effect
+                    // and macros are best placed before that item
+                    let expr = self.expr_from_cur(ch)?;
+                    match expr.kind {
+                        Kind::TransparentGroup(mut gr) => {
+                            items.append(&mut gr.items);
+                        },
+                        _ => items.push(expr),
+                    };
+                }
+                Ok(Expr {
+                    loc: cur.loc(),
+                    kind: Kind::TranslationUnit(TranslationUnit {
+                        name: cur.spelling(),
+                        items,
+                    }),
+                })
+            },
             _ => Err("unexpected type")?,
         }
     }
