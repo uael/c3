@@ -130,8 +130,7 @@ impl C3 {
         }
     }
 
-    fn tu_from_cursor(&self, cur: Cursor) -> Res<Expr> {
-        // self.dump("tu",cur);
+    fn tu_from_cursor(&mut self, cur: Cursor) -> Res<Expr> {
         match cur.kind() {
             CXCursor_TranslationUnit => Ok(Expr {
                 loc: cur.loc(),
@@ -145,7 +144,7 @@ impl C3 {
         }
     }
 
-    fn expr_from_child(&self, cur: Cursor) -> Res<Option<Box<Expr>>> {
+    fn expr_from_child(&mut self, cur: Cursor) -> Res<Option<Box<Expr>>> {
         Ok(if let Some(ch) = cur.first_child() {
             Some(Box::new(self.expr_from_cur(ch)?))
         } else {
@@ -153,7 +152,7 @@ impl C3 {
         })
     }
 
-    fn expr_from_iter<I: IntoIterator<Item=Cursor>>(&self, iter: I) -> Res<Option<Box<Expr>>> {
+    fn expr_from_iter<I: IntoIterator<Item=Cursor>>(&mut self, iter: I) -> Res<Option<Box<Expr>>> {
         let mut iter = iter.into_iter();
         Ok(if let Some(ch) = iter.next() {
             Some(Box::new(self.expr_from_cur(ch)?))
@@ -162,7 +161,7 @@ impl C3 {
         })
     }
 
-    fn exprs_from_children(&self, cur: Cursor) -> Res<Vec<Expr>> {
+    fn exprs_from_children(&mut self, cur: Cursor) -> Res<Vec<Expr>> {
         cur.map_children_err(|c| self.expr_from_cur(c))
     }
 
@@ -209,7 +208,7 @@ impl C3 {
         }))
     }
 
-    fn expr_from_cur(&self, cur: Cursor) -> Res<Expr> {
+    fn expr_from_cur(&mut self, cur: Cursor) -> Res<Expr> {
         if !cur.is_valid() {
             Err("invalid cursor")?;
         }
@@ -610,7 +609,7 @@ impl C3 {
         out
     }
 
-    fn for_from_cur(&self, cur: Cursor) -> Res<Kind> {
+    fn for_from_cur(&mut self, cur: Cursor) -> Res<Kind> {
         Ok(Kind::For(For {
             init: if let Some(ch) = cur.for_init() {Some(Box::new(self.expr_from_cur(ch)?))} else {None},
             cond: if let Some(ch) = cur.for_cond() {
@@ -622,7 +621,7 @@ impl C3 {
         }))
     }
 
-    fn if_from_cur(&self, cur: Cursor) -> Res<Kind> {
+    fn if_from_cur(&mut self, cur: Cursor) -> Res<Kind> {
         let cond_cur = cur.if_cond();
         let cond_expr = self.expr_from_cur(cond_cur).map_err(|err|{
             err.context(format!("while parsing cond {:?}", cond_cur))
@@ -641,7 +640,7 @@ impl C3 {
         }))
     }
 
-    fn var_from_cur(&self, cur: Cursor) -> Res<Kind> {
+    fn var_from_cur(&mut self, cur: Cursor) -> Res<Kind> {
         let mut child_iter = cur.collect_children().into_iter();
         let ty = self.ty_from_ty(cur.cur_type(), &mut child_iter)?;
 
@@ -659,11 +658,11 @@ impl C3 {
         }))
     }
 
-    fn ty_from_cur(&self, cur: Cursor) -> Res<Ty> {
+    fn ty_from_cur(&mut self, cur: Cursor) -> Res<Ty> {
         self.ty_from_cur_opts(cur, TyOptions::typerefs(true))
     }
 
-    fn ty_from_cur_opts(&self, cur: Cursor, opts: TyOptions) -> Res<Ty> {
+    fn ty_from_cur_opts(&mut self, cur: Cursor, opts: TyOptions) -> Res<Ty> {
         self.ty_from_ty_opts(cur.cur_type(), cur.collect_children(), opts)
             .map_err(|err| {
                 self.dump("err in ty", cur);
@@ -671,16 +670,16 @@ impl C3 {
             })
     }
 
-    fn ty_from_ty<I: IntoIterator<Item=Cursor>>(&self, ty: clang::Type, iter: I) -> Res<Ty> {
+    fn ty_from_ty<I: IntoIterator<Item=Cursor>>(&mut self, ty: clang::Type, iter: I) -> Res<Ty> {
         self.ty_from_ty_opts(ty, iter, TyOptions::typerefs(true))
     }
 
-    fn ty_from_ty_opts<I: IntoIterator<Item=Cursor>>(&self, ty: clang::Type, iter: I, opts: TyOptions) -> Res<Ty> {
+    fn ty_from_ty_opts<I: IntoIterator<Item=Cursor>>(&mut self, ty: clang::Type, iter: I, opts: TyOptions) -> Res<Ty> {
         let ref mut iter = iter.into_iter();
         self.ty_from_ty_iter(ty, iter, opts)
     }
 
-    fn ty_from_ty_iter<I: Iterator<Item=Cursor>>(&self, ty: clang::Type, iter: &mut I, opts: TyOptions) -> Res<Ty> {
+    fn ty_from_ty_iter<I: Iterator<Item=Cursor>>(&mut self, ty: clang::Type, iter: &mut I, opts: TyOptions) -> Res<Ty> {
         Ok(Ty {
             is_const: ty.is_const(),
             debug_name: self.type_name(ty)?,
@@ -813,7 +812,7 @@ impl C3 {
         }
     }
 
-    fn fn_from_cur(&self, cur: Cursor) -> Res<Kind> {
+    fn fn_from_cur(&mut self, cur: Cursor) -> Res<Kind> {
         let mut body = None;
         let mut args = vec![];
         let mut storage = self.storage_from_cur(cur);
