@@ -18,6 +18,10 @@ impl Kind {
     pub fn declref<S: Into<String>>(name: S) -> Self {
         Kind::DeclRef(name.into())
     }
+
+    pub fn paren<E: Into<Box<Expr>>>(expr: E) -> Self {
+        Kind::Paren(expr.into())
+    }
 }
 
 impl VarDecl {

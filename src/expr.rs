@@ -34,6 +34,7 @@ pub enum Kind {
     Switch(Switch),
     Case(Case),
     For(For),
+    ForIn(ForIn), // Rust
     While(While),
     If(If),
     Call(Call),
@@ -181,6 +182,11 @@ pub enum BinOpKind {
     Comma,
 
     ArrayIndex,
+
+    // Rust's ..
+    HalfOpenRange,
+    // Rust's ..=
+    ClosedRange,
 }
 
 #[derive(Clone, PartialEq)]
@@ -202,26 +208,10 @@ pub struct SizeOf {
     pub ty: Ty,
 }
 
-
-#[derive(Clone, PartialEq)]
-pub struct FloatingLiteral {
-    pub value: f64,
-}
-
-#[derive(Clone, PartialEq)]
-pub struct CharacterLiteral {
-    pub value: char,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompoundLiteral {
     pub items: Vec<Expr>,
     pub ty: Ty,
-}
-
-#[derive(Clone, PartialEq)]
-pub struct StringLiteral {
-    pub syntax: String,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -273,6 +263,13 @@ pub struct For {
     pub init: Option<Box<Expr>>,
     pub cond: Option<Box<Expr>>,
     pub inc: Option<Box<Expr>>,
+    pub body: Box<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForIn {
+    pub pattern: Box<Expr>,
+    pub iter: Box<Expr>,
     pub body: Box<Expr>,
 }
 
