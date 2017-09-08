@@ -665,6 +665,11 @@ impl C3 {
             let should_define = match macro_name.as_str() {
                 "offsetof" => return Ok(None), // expands to actual offsetof node
                 "NULL" => false,
+                "stdin" |
+                "stdout" |
+                "stderr" => false,
+                "true" |
+                "false" => false,
                 _ => true,
             };
             if should_define && !self.generated_macro_definition_exprs.contains(&macro_name) {
