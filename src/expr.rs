@@ -124,7 +124,7 @@ pub struct FunctionDecl {
     pub abi: Abi,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum UnOpKind {
     PostInc,
     PostDec,
@@ -143,7 +143,7 @@ pub enum UnOpKind {
     IsNull,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum BinOpKind {
     Add,
     Sub,
@@ -394,11 +394,15 @@ impl fmt::Debug for UnaryOperator {
 
 impl fmt::Debug for Loc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.start.line, self.start.col)?;
-        if self.end.line != self.start.line {
-            write!(f, "-{}:{}", self.end.line, self.end.col)?;
-        } else if self.end.col != self.start.col {
-            write!(f, "-{}", self.end.col)?;
+        if self.start.line != 0 || self.start.col != 0 {
+            write!(f, "{}:{}", self.start.line, self.start.col)?;
+            if self.end.line != self.start.line {
+                write!(f, "-{}:{}", self.end.line, self.end.col)?;
+            } else if self.end.col != self.start.col {
+                write!(f, "-{}", self.end.col)?;
+            }
+        } else {
+            write!(f, "-")?;
         }
         Ok(())
     }

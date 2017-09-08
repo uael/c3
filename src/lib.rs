@@ -7,6 +7,7 @@ extern crate clang_sys;
 
 pub mod expr;
 pub mod ty;
+mod new;
 
 mod bindgen { pub(crate) mod clang; }
 mod clang_extensions;

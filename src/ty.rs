@@ -1,7 +1,7 @@
 use expr::*;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Visibility {
     Default,
     Hidden,
