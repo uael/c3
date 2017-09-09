@@ -318,6 +318,8 @@ extern "C" uint32_t c3_Cursor_getKindExt(CXCursor cursor) {
             case clang::attr::WorkGroupSizeHint: return CusorKindExt::WorkGroupSizeHintAttr;
             case clang::attr::X86ForceAlignArgPointer: return CusorKindExt::X86ForceAlignArgPointerAttr;
             case clang::attr::XRayInstrument: return CusorKindExt::XRayInstrument;
+            default:
+                break; // Ignore new in LLVM5
         }
     }
 
@@ -476,5 +478,7 @@ extern "C" ClangTypeExt c3_CursorType_getKindExt(CXType CT) {
         case clang::Type::UnresolvedUsing: return ClangTypeExt::UnresolvedUsingType;
         case clang::Type::VariableArray: return ClangTypeExt::VariableArrayType;
         case clang::Type::Vector: return ClangTypeExt::VectorType;
+        default:
+            return ClangTypeExt::SomethingIsBrokenType;
     }
 }

@@ -55,6 +55,7 @@ fn collect_search_paths() -> Vec<PathBuf> {
 
 fn find_clang_include(candidate_paths: &[PathBuf], file_search: &str) -> PathBuf {
     let fallback_paths = [
+        "/usr/lib/llvm-5.0/include/",
         "/usr/lib/llvm-4.0/include/",
         "C:\\Program Files\\LLVM\\include",
         "../clang/include/",
