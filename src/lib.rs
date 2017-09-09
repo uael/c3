@@ -23,7 +23,7 @@ use c3_clang_extensions::*;
 use clang_sys::*;
 use bindgen::clang;
 use bindgen::clang::{UnsavedFile, Cursor};
-use clang_extensions::{MapResult, CursorExt};
+use clang_extensions::*;
 
 struct TyOptions {
     typerefs: bool,
@@ -40,7 +40,7 @@ impl TyOptions {
 type MacroLocKey = (clang::File, usize, usize);
 
 pub struct C3 {
-    translation_unit: Option<clang::TranslationUnit>,
+    translation_unit: clang::TranslationUnit,
     macro_definitions: HashMap<String, Cursor>,
     generated_macro_definition_exprs: HashSet<String>,
     pending_macro_definition_exprs: Vec<Expr>,
@@ -48,9 +48,9 @@ pub struct C3 {
 }
 
 impl C3 {
-    pub fn new() -> Self {
+    fn new(translation_unit: clang::TranslationUnit) -> Self {
         Self {
-            translation_unit: None,
+            translation_unit,
             macro_definitions: HashMap::new(),
             generated_macro_definition_exprs: HashSet::new(),
             pending_macro_definition_exprs: Vec::new(),
@@ -58,22 +58,24 @@ impl C3 {
         }
     }
 
-    pub fn parse_file(&mut self, file_path: &Path, compiler_flags: &[String]) -> Res<Expr> {
-        self.parse(file_path, &vec![], compiler_flags)
+    pub fn parse_file(file_path: &Path, compiler_flags: &[String]) -> Res<Self> {
+        Self::parse(file_path, &vec![], compiler_flags)
     }
 
-    pub fn parse_source(&mut self, code: &str, fname: &Path, compiler_flags: &[String]) -> Res<Expr> {
-        self.parse(fname, &vec![UnsavedFile::new(fname.to_str().ok_or("non-utf8 filename")?, code)], compiler_flags)
+    pub fn parse_source(code: &str, fname: &Path, compiler_flags: &[String]) -> Res<Self> {
+        Self::parse(fname, &vec![UnsavedFile::new(fname.to_str().ok_or("non-utf8 filename")?, code)], compiler_flags)
     }
 
-    fn parse(&mut self, file_path: &Path, unsaved: &[UnsavedFile], compiler_flags: &[String]) -> Res<Expr> {
+    fn parse(file_path: &Path, unsaved: &[UnsavedFile], compiler_flags: &[String]) -> Res<Self> {
         let file_path = file_path.to_str().ok_or("non-utf8 filename")?;
         let ix = clang::Index::new(false, true);
-        self.translation_unit = Some(clang::TranslationUnit::parse(&ix, file_path, compiler_flags, unsaved, CXTranslationUnit_DetailedPreprocessingRecord).ok_or("Clang parse error")?);
-        let cur = self.translation_unit.as_ref().ok_or("clang err")?.cursor();
-        let res = self.tu_from_cursor(cur);
-        self.translation_unit = None;
-        res
+        let translation_unit = clang::TranslationUnit::parse(&ix, file_path, compiler_flags, unsaved, CXTranslationUnit_DetailedPreprocessingRecord)
+            .ok_or("Clang parse error")?;
+        Ok(Self::new(translation_unit))
+    }
+
+    pub fn comments(&self) -> Res<Vec<Comment>> {
+        Ok(comment_tokens(&self.translation_unit).ok_or("Can't tokenize")?)
     }
 
     pub fn dump_ty(&self, depth: usize, label: &str, ty: clang::Type) {
@@ -147,7 +149,8 @@ impl C3 {
         }
     }
 
-    fn tu_from_cursor(&mut self, cur: Cursor) -> Res<Expr> {
+    pub fn ast(&mut self) -> Res<Expr> {
+        let cur = self.translation_unit.cursor();
         match cur.kind() {
             CXCursor_TranslationUnit => {
                 let mut items = vec![];
@@ -621,7 +624,7 @@ impl C3 {
                 Kind::TransparentGroup(TransparentGroup{items:vec![]})
             },
             CXCursor_MacroExpansion => {
-                if !cur.is_builtin() && !cur.is_function_macro(self.translation_unit.as_ref().unwrap()) {
+                if !cur.is_builtin() && !cur.is_function_macro(&self.translation_unit) {
                     let (file, line, col, _) = cur.location().location();
                     self.macro_expansions.insert((file, line, col), cur);
                 }
@@ -1037,7 +1040,7 @@ impl C3 {
 
 #[cfg(test)]
 fn test_parse(source: &str) -> Vec<Expr> {
-    let tu = C3::new().parse_source(source, Path::new("_test_.c"), &[])
+    let tu = C3::parse_source(source, Path::new("_test_.c"), &[]).unwrap().ast()
         .unwrap();
     match tu.kind {
         Kind::TranslationUnit(tu) => tu.items,

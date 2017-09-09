@@ -111,26 +111,8 @@ impl CursorExt for Cursor {
     }
 
     fn loc(&self) -> Loc {
-        fn pos(loc: CXSourceLocation) -> LocPos {
-            unsafe {
-                let mut line = 0;
-                let mut col = 0;
-                clang_getFileLocation(loc, ptr::null_mut(), &mut line, &mut col, ptr::null_mut());
-                LocPos {
-                    line: line as u32, col: col as u32,
-                }
-            }
-        }
-        let ext = self.extent();
-        unsafe {
-            Loc {
-                start: pos(clang_getRangeStart(ext)),
-                end: pos(clang_getRangeEnd(ext)),
-            }
-        }
+        Loc::new(self.extent())
     }
-
-
 
     fn limit_range(range: &mut CXSourceRange, cur: &Cursor) {
         cur.visit(|child_cur|{
@@ -264,3 +246,57 @@ impl RangeLocations for CXSourceRange {
     }
 }
 
+impl Loc {
+    pub fn new(ext: CXSourceRange) -> Self {
+        fn pos(loc: CXSourceLocation) -> LocPos {
+            unsafe {
+                let mut line = 0;
+                let mut col = 0;
+                clang_getFileLocation(loc, ptr::null_mut(), &mut line, &mut col, ptr::null_mut());
+                LocPos {
+                    line: line as u32, col: col as u32,
+                }
+            }
+        }
+        unsafe {
+            Loc {
+                start: pos(clang_getRangeStart(ext)),
+                end: pos(clang_getRangeEnd(ext)),
+            }
+        }
+    }
+}
+
+use std::slice;
+use std::os::raw::c_uint;
+
+pub fn comment_tokens(tu: &TranslationUnit) -> Option<Vec<::expr::Comment>> {
+    let range = tu.cursor().extent();
+    let mut tokens = vec![];
+    unsafe {
+        let mut token_ptr = ptr::null_mut();
+        let mut num_tokens: c_uint = 0;
+        clang_tokenize(tu.x, range, &mut token_ptr, &mut num_tokens);
+        if token_ptr.is_null() {
+            return None;
+        }
+
+        let token_array = slice::from_raw_parts(token_ptr,
+                                                num_tokens as usize);
+        for &token in token_array.iter() {
+            let kind = clang_getTokenKind(token);
+            if kind != CXToken_Comment {
+                continue;
+            }
+            let extent = clang_getTokenExtent(tu.x, token);
+            let spelling =
+                cxstring_into_string(clang_getTokenSpelling(tu.x, token));
+            tokens.push(::expr::Comment {
+                syntax: spelling,
+                loc: Loc::new(extent),
+            });
+        }
+        clang_disposeTokens(tu.x, token_ptr, num_tokens);
+    }
+    Some(tokens)
+}

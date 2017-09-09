@@ -1172,7 +1172,7 @@ impl File {
     }
 }
 
-fn cxstring_into_string(s: CXString) -> String {
+pub fn cxstring_into_string(s: CXString) -> String {
     if s.data.is_null() {
         return "".to_owned();
     }
@@ -1225,13 +1225,14 @@ impl Drop for Index {
 pub struct Token {
     /// The kind of token this is.
     pub kind: CXTokenKind,
+    pub extent: CXSourceRange,
     /// A display name for this token.
     pub spelling: String,
 }
 
 /// A translation unit (or "compilation unit").
 pub struct TranslationUnit {
-    x: CXTranslationUnit,
+    pub(crate) x: CXTranslationUnit,
 }
 
 impl fmt::Debug for TranslationUnit {
@@ -1322,12 +1323,14 @@ impl TranslationUnit {
                                                     num_tokens as usize);
             for &token in token_array.iter() {
                 let kind = clang_getTokenKind(token);
+                let extent = clang_getTokenExtent(self.x, token);
                 let spelling =
                     cxstring_into_string(clang_getTokenSpelling(self.x, token));
 
                 tokens.push(Token {
-                    kind: kind,
-                    spelling: spelling,
+                    kind,
+                    spelling,
+                    extent,
                 });
             }
             clang_disposeTokens(self.x, token_ptr, num_tokens);

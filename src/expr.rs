@@ -8,6 +8,12 @@ pub struct Expr {
     pub loc: Loc,
 }
 
+#[derive(Debug, Clone)]
+pub struct Comment {
+    pub syntax: String,
+    pub loc: Loc,
+}
+
 impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
         self.kind.eq(&other.kind)
