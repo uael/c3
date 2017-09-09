@@ -508,7 +508,13 @@ impl C3 {
                 Kind::FloatingLiteral(cur.get_float_value())
             },
             CXCursor_StringLiteral => {
-                Kind::StringLiteral(Self::parse_c_str(cur.spelling()))
+                Kind::StringLiteral(cur.evaluate()
+                    .and_then(|val|val.as_literal_string())
+                    .and_then(|val|String::from_utf8(val).ok())
+                    .unwrap_or_else(|| {
+                        // Apparently not all literals can be evaluated, so a fallback is necessary
+                        Self::parse_c_str(cur.spelling())
+                    }))
             },
             CXCursor_CharacterLiteral => {
                 Kind::CharacterLiteral(::std::char::from_u32(cur.get_int_value() as u32).ok_or("char cast")?)
@@ -1061,6 +1067,23 @@ fn test_parse_typedef() {
             }
         },
         _ => panic!(),
+    }
+}
+
+#[test]
+fn test_parse_str() {
+    let items = test_parse(r#"char *foo = "\\hello\"\n\x20";"#);
+    match items[0].kind {
+        Kind::VarDecl(ref v) => {
+            match v.init.as_ref().unwrap().kind {
+                Kind::Cast(ref c) => match c.arg.kind {
+                    Kind::StringLiteral(ref s) if s == "\\hello\"\n " => {},
+                    _ => panic!("{:?}", c),
+                },
+                _ => panic!("{:?}", v),
+            }
+        },
+        _ => panic!("{:?}", items),
     }
 }
 
