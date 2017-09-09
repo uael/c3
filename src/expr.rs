@@ -220,16 +220,13 @@ pub struct CompoundLiteral {
     pub ty: Ty,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct LocPos {
-    pub line: u32,
-    pub col: u32,
-}
-
 #[derive(Copy, Clone, PartialEq)]
 pub struct Loc {
-    pub start: LocPos,
-    pub end: LocPos,
+    pub byte_pos: u32,
+    pub byte_len: u32,
+    pub start_line: u32,
+    pub start_col: u16,
+    pub line_len: u16,
 }
 
 #[derive(Clone, PartialEq)]
@@ -302,17 +299,6 @@ pub struct Block {
 #[derive(Clone, PartialEq)]
 pub struct TransparentGroup {
     pub items: Vec<Expr>,
-}
-
-impl PartialOrd for LocPos {
-    fn partial_cmp(&self, other: &LocPos) -> Option<Ordering> {
-        let line = self.line.partial_cmp(&other.line);
-        if line.map(|l| l != Ordering::Equal).unwrap_or(true) {
-            line
-        } else {
-            self.col.partial_cmp(&other.col)
-        }
-    }
 }
 
 impl Kind {
@@ -397,12 +383,12 @@ impl fmt::Debug for UnaryOperator {
 
 impl fmt::Debug for Loc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.start.line != 0 || self.start.col != 0 {
-            write!(f, "{}:{}", self.start.line, self.start.col)?;
-            if self.end.line != self.start.line {
-                write!(f, "-{}:{}", self.end.line, self.end.col)?;
-            } else if self.end.col != self.start.col {
-                write!(f, "-{}", self.end.col)?;
+        if self.start_line != 0 {
+            write!(f, ":{}", self.start_line)?;
+            if self.line_len > 0 {
+                write!(f, "-{}", self.start_line + self.line_len as u32)?;
+            } else {
+                write!(f, ":{}", self.start_col)?;
             }
         } else {
             write!(f, "-")?;

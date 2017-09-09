@@ -4,8 +4,11 @@ use ty::*;
 impl Loc {
     pub fn dummy() -> Self {
         Self {
-            start: LocPos {col:0,line:0},
-            end: LocPos {col:0,line:0},
+            byte_pos: 0,
+            byte_len: 0,
+            start_line: 0,
+            start_col: 0,
+            line_len: 0,
         }
     }
 }

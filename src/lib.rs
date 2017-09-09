@@ -642,8 +642,10 @@ impl C3 {
     }
 
     fn all_inside_loc(enclosing_loc: &Loc, cur: Cursor) -> bool {
+        assert!(!enclosing_loc.is_builtin());
         let cur_loc = cur.loc();
-        if cur_loc.start < enclosing_loc.start || cur_loc.end > enclosing_loc.end {
+        if !cur_loc.is_builtin() && cur_loc.byte_pos < enclosing_loc.byte_pos ||
+           cur_loc.byte_pos + cur_loc.byte_len > enclosing_loc.byte_pos + enclosing_loc.byte_len {
             return false;
         }
 
@@ -678,6 +680,7 @@ impl C3 {
                 "stdin" |
                 "stdout" |
                 "stderr" => false,
+                "bool" |
                 "true" |
                 "false" => false,
                 _ => true,

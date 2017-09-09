@@ -5,7 +5,7 @@ use std::ptr;
 use std::cmp::{min,max};
 use clang_sys::*;
 use bindgen::clang::*;
-use expr::{Loc, LocPos};
+use expr::Loc;
 use super::Res;
 
 pub(crate) trait MapResult<T> {
@@ -248,22 +248,28 @@ impl RangeLocations for CXSourceRange {
 
 impl Loc {
     pub fn new(ext: CXSourceRange) -> Self {
-        fn pos(loc: CXSourceLocation) -> LocPos {
+        fn pos(loc: CXSourceLocation) -> (u32, u32, u32) {
             unsafe {
                 let mut line = 0;
                 let mut col = 0;
-                clang_getFileLocation(loc, ptr::null_mut(), &mut line, &mut col, ptr::null_mut());
-                LocPos {
-                    line: line as u32, col: col as u32,
-                }
+                let mut byte_pos = 0;
+                clang_getFileLocation(loc, ptr::null_mut(), &mut line, &mut col, &mut byte_pos);
+                (line as u32, col as u32, byte_pos as u32)
             }
         }
-        unsafe {
-            Loc {
-                start: pos(clang_getRangeStart(ext)),
-                end: pos(clang_getRangeEnd(ext)),
-            }
+        let (start_line, start_col, byte_pos) = pos(unsafe {clang_getRangeStart(ext)});
+        let (end_line, _, end_pos) = pos(unsafe {clang_getRangeEnd(ext)});
+        Loc {
+            byte_pos,
+            byte_len: end_pos - byte_pos,
+            start_col: start_col as u16,
+            start_line,
+            line_len: (end_line - start_line) as u16,
         }
+    }
+
+    pub fn is_builtin(&self) -> bool {
+        self.start_line == 0
     }
 }
 
