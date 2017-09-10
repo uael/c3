@@ -244,10 +244,11 @@ impl C3 {
             Err("invalid cursor")?;
         }
 
+        let loc = cur.loc();
         if let Some(source_file) = cur.file().name() {
             if source_file.starts_with("/Applications/Xcode.app/") || source_file.starts_with("/usr/include/") {
                 return Ok(Expr {
-                    loc: cur.loc(),
+                    loc,
                     kind: Kind::TransparentGroup(TransparentGroup {
                         items: vec![],
                     }),
@@ -312,11 +313,11 @@ impl C3 {
             },
             CXCursor_FunctionDecl => {
                 self.fn_from_cur(cur)
-                    .map_err(|err| err.context(format!("error in function {}", cur.spelling())))?
+                    .map_err(|err| err.context(format!("error in function {} {:?}", cur.spelling(), loc)))?
             },
             CXCursor_VarDecl => {
                 self.var_from_cur(cur)
-                    .map_err(|err| err.context(format!("error when parsing variable {}", cur.spelling())))?
+                    .map_err(|err| err.context(format!("error when parsing variable {} {:?}", cur.spelling(), loc)))?
             },
             CXCursor_StmtExpr => {
                 Kind::Block(Block {
@@ -346,7 +347,7 @@ impl C3 {
             CXCursor_CaseStmt => {
                 let ch = cur.collect_children();
                 if ch.len() != 2 {
-                    Err("unexpected case children")?;
+                    Err(format!("unexpected case children {:?}", loc))?;
                 }
                 Kind::Case(Case {
                     conds: vec![self.expr_from_cur(ch[0])?],
@@ -361,7 +362,7 @@ impl C3 {
             },
             CXCursor_CallExpr => {
                 let mut args = self.exprs_from_children(cur)
-                    .map_err(|err|err.context(format!("while calling fn {}", cur.spelling())))?;
+                    .map_err(|err|err.context(format!("while calling fn {} {:?}", cur.spelling(), loc)))?;
                 if args.is_empty() {
                     Err("missing call args")?;
                 }
@@ -632,7 +633,7 @@ impl C3 {
             }
         }};
         Ok(Expr{
-            loc: cur.loc(),
+            loc,
             kind,
         })
     }
