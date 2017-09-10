@@ -264,7 +264,7 @@ impl C3 {
             // Top-level Items
             CXCursor_TypedefDecl => {
                 Kind::TyDecl(TyDecl {
-                    ty: self.ty_from_ty(cur.typedef_type().ok_or("typedef")?, cur.collect_children())?,
+                    ty: self.ty_from_ty(cur.typedef_type().ok_or("typedef")?, cur.loc(), cur.collect_children())?,
                     name: self.type_name_cur(cur)?,
                 })
             },
@@ -390,7 +390,7 @@ impl C3 {
             },
             CXCursor_CompoundLiteralExpr => {
                 let mut child_iter = cur.collect_children().into_iter();
-                let ty = self.ty_from_ty(cur.cur_type(), &mut child_iter)?;
+                let ty = self.ty_from_ty(cur.cur_type(), cur.loc(), &mut child_iter)?;
                 let value = child_iter.filter(|ch| ch.kind() == CXCursor_InitListExpr)
                     .next().ok_or("compound w/o value")?;
                 let value = self.expr_from_cur(value)
@@ -470,7 +470,7 @@ impl C3 {
             CXCursor_UnaryExpr => {
                 let mut ch = cur.collect_children().into_iter();
                 Kind::SizeOf(SizeOf {
-                    ty: self.ty_from_ty(cur.sizeof_arg_type().ok_or("no type of sizeof")?, &mut ch)?,
+                    ty: self.ty_from_ty(cur.sizeof_arg_type().ok_or("no type of sizeof")?, cur.loc(), &mut ch)?,
                     arg: self.expr_from_iter(ch)?,
                 })
             },
@@ -773,7 +773,7 @@ impl C3 {
 
     fn var_from_cur(&mut self, cur: Cursor) -> Res<Kind> {
         let mut child_iter = cur.collect_children().into_iter();
-        let ty = self.ty_from_ty(cur.cur_type(), &mut child_iter)?;
+        let ty = self.ty_from_ty(cur.cur_type(), cur.loc(), &mut child_iter)?;
 
         let init = if let Some(child) = cur.var_init() {
             Some(Box::new(self.expr_from_cur(child)?))
@@ -794,23 +794,23 @@ impl C3 {
     }
 
     fn ty_from_cur_opts(&mut self, cur: Cursor, opts: TyOptions) -> Res<Ty> {
-        self.ty_from_ty_opts(cur.cur_type(), cur.collect_children(), opts)
+        self.ty_from_ty_opts(cur.cur_type(), cur.loc(), cur.collect_children(), opts)
             .map_err(|err| {
                 self.dump("err in ty", cur);
                 err.context(format!("error in type {:?}", cur))
             })
     }
 
-    fn ty_from_ty<I: IntoIterator<Item=Cursor>>(&mut self, ty: clang::Type, iter: I) -> Res<Ty> {
-        self.ty_from_ty_opts(ty, iter, TyOptions::typerefs(true))
+    fn ty_from_ty<I: IntoIterator<Item=Cursor>>(&mut self, ty: clang::Type, loc: Loc, iter: I) -> Res<Ty> {
+        self.ty_from_ty_opts(ty, loc, iter, TyOptions::typerefs(true))
     }
 
-    fn ty_from_ty_opts<I: IntoIterator<Item=Cursor>>(&mut self, ty: clang::Type, iter: I, opts: TyOptions) -> Res<Ty> {
+    fn ty_from_ty_opts<I: IntoIterator<Item=Cursor>>(&mut self, ty: clang::Type, loc: Loc, iter: I, opts: TyOptions) -> Res<Ty> {
         let ref mut iter = iter.into_iter();
-        self.ty_from_ty_iter(ty, iter, opts)
+        self.ty_from_ty_iter(ty, loc, iter, opts)
     }
 
-    fn ty_from_ty_iter<I: Iterator<Item=Cursor>>(&mut self, ty: clang::Type, iter: &mut I, opts: TyOptions) -> Res<Ty> {
+    fn ty_from_ty_iter<I: Iterator<Item=Cursor>>(&mut self, ty: clang::Type, loc: Loc, iter: &mut I, opts: TyOptions) -> Res<Ty> {
         Ok(Ty {
             is_const: ty.is_const(),
             debug_name: self.type_name(ty)?,
@@ -833,13 +833,13 @@ impl C3 {
             CXType_Char32 => TyKind::Char32,
             CXType_Char16 => TyKind::Char16,
             CXType_Void => TyKind::Void,
-            CXType_IncompleteArray => TyKind::IncompleteArray(Box::new(self.ty_from_ty_iter(ty.elem_type().ok_or("array type")?, iter, opts)?)),
+            CXType_IncompleteArray => TyKind::IncompleteArray(Box::new(self.ty_from_ty_iter(ty.elem_type().ok_or("array type")?, loc, iter, opts)?)),
             CXType_ConstantArray => {
-                let elem_ty = self.ty_from_ty_iter(ty.elem_type().ok_or("array type")?, iter, opts)?;
+                let elem_ty = self.ty_from_ty_iter(ty.elem_type().ok_or("array type")?, loc, iter, opts)?;
                 TyKind::ConstantArray(ty.num_elements().ok_or("array without size")?, Box::new(elem_ty))
             },
             CXType_VariableArray => {
-                let elem_ty = self.ty_from_ty_iter(ty.elem_type().ok_or("array type")?, iter, opts)?;
+                let elem_ty = self.ty_from_ty_iter(ty.elem_type().ok_or("array type")?, loc, iter, opts)?;
                 if let Some(size) = iter.next() {
                     let size = self.expr_from_cur(size)?;
                     TyKind::VariableArray(Box::new(size), Box::new(elem_ty))
@@ -848,7 +848,7 @@ impl C3 {
                     TyKind::IncompleteArray(Box::new(elem_ty))
                 }
             },
-            CXType_Pointer => TyKind::Pointer(Box::new(self.ty_from_ty_iter(ty.pointee_type().ok_or("pointee type")?, iter, opts)?)),
+            CXType_Pointer => TyKind::Pointer(Box::new(self.ty_from_ty_iter(ty.pointee_type().ok_or("pointee type")?, loc, iter, opts)?)),
             CXType_Typedef => {
                 // Seems necessary to consume TypeRef, otherwise VarDecl goes out of sync
                 if opts.typerefs {
@@ -857,7 +857,7 @@ impl C3 {
                             CXCursor_TypeRef => {},
                             CXCursor_DeclRefExpr => {},
                             _ => {
-                                eprintln!("warning: foung unexpected element in clang AST. Expected TypeRef, found {:?}", ch);
+                                eprintln!("warning: foung unexpected element in clang AST. Expected TypeRef, found {:?} {:?}", ch, loc);
                             }
                         }
                     }
@@ -892,7 +892,7 @@ impl C3 {
                 match decl.kind() {
                     CXCursor_StructDecl => TyKind::Struct(name, items),
                     CXCursor_UnionDecl => TyKind::Union(name, items),
-                    _ => Err(format!("unknown kind {:?}", decl))?
+                    _ => Err(format!("unknown kind {:?} {:?}", decl, loc))?
                 }
             },
             CXType_Elaborated => {
@@ -921,27 +921,27 @@ impl C3 {
                         // This is a fragile workaround
                         let canon = ty.canonical_type();
                         if canon != ty {
-                            return self.ty_from_ty_iter(canon, iter, TyOptions::typerefs(false));
+                            return self.ty_from_ty_iter(canon, loc, iter, TyOptions::typerefs(false));
                         } else {
                             Err("paren type without canonical type")?
                         }
                     },
-                    k => Err(format!("ERROR: Extended type kind is unsupported '{}', {:?}; {:?}\n ", ty.spelling(), k, ty))?
+                    k => Err(format!("ERROR: Extended type kind is unsupported '{}', {:?}; {:?} {:?}", ty.spelling(), k, ty, loc))?
                 }
             },
             CXType_Auto => {
                 if ty != ty.canonical_type() {
-                    return self.ty_from_ty_iter(ty.canonical_type(), iter, opts);
+                    return self.ty_from_ty_iter(ty.canonical_type(), loc, iter, opts);
                 } else {
                     Err("unknown auto type")?
                 }
             },
             CXType_Invalid => {
-                eprintln!("invalid type found");
+                eprintln!("invalid type found {:?}", loc);
                 TyKind::Void
             },
             k => {
-                Err(format!("ERROR: Standard type kind is unsupported '{}', {:?}; {:?}\n ", ty.spelling(), k, ty))?
+                Err(format!("ERROR: Standard type kind is unsupported '{}', {:?}; {:?} {:?}", ty.spelling(), k, ty, loc))?
             },
         }})
     }
@@ -990,7 +990,7 @@ impl C3 {
             .filter(|c| c.kind() != CXCursor_UnexposedAttr) // fn attrs come before ret ty
             .filter(|c| c.kind() != CXCursor_VisibilityAttr);
 
-        let ty = self.ty_from_ty(cur.ret_type().ok_or("no return type for fn?")?, &mut children)
+        let ty = self.ty_from_ty(cur.ret_type().ok_or("no return type for fn?")?, cur.loc(), &mut children)
                 .map_err(|err| {
                     self.dump_ty(0, "err in ty", cur.ret_type().unwrap());
                     self.dump("err in ty", cur);
