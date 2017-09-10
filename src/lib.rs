@@ -928,6 +928,13 @@ impl C3 {
                     k => Err(format!("ERROR: Extended type kind is unsupported '{}', {:?}; {:?}\n ", ty.spelling(), k, ty))?
                 }
             },
+            CXType_Auto => {
+                if ty != ty.canonical_type() {
+                    return self.ty_from_ty_iter(ty.canonical_type(), iter, opts);
+                } else {
+                    Err("unknown auto type")?
+                }
+            },
             CXType_Invalid => {
                 eprintln!("invalid type found");
                 TyKind::Void
